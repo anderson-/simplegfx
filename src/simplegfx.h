@@ -30,6 +30,8 @@ extern "C" {
   extern SDL_Surface * screen;
 #endif
 
+extern uint32_t elm;
+
 #include <time.h>
 #include <math.h>
 #include <rg35xx_btns.h>
@@ -49,11 +51,12 @@ void gfx_set_font(font_t * font);
 font_t * gfx_get_font(void);
 int gfx_font_table(int x, int y, int size);
 void gfx_text(const char * text, int x, int y, int size);
+void gfx_beep(int freq, int ms);
 void gfx_clear(void);
 void gfx_fill_rect(int x, int y, int w, int h);
 void gfx_run(void);
 
-extern void render(void);
+extern void render(int freetime);
 extern int on_key(char key, int down);
 
 #ifdef __cplusplus

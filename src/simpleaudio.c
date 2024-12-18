@@ -49,7 +49,7 @@ void beep(int freq, int ms) {
   SDL_UnlockAudio();
 }
 
-void audio_callback(void * userdata, Uint8 * stream, int len) {
+void audio_callback(void * userdata, uint8_t * stream, int len) {
   int16_t * buffer = (int16_t *)stream;
   int genlen = len / sizeof(int16_t);
   for (int i = 0; i < genlen; i++) {

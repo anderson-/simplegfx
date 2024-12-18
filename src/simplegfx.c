@@ -5,11 +5,12 @@ SDL_Renderer * renderer = NULL;
 SDL_Window * window = NULL;
 #else
 SDL_Surface * screen = NULL;
-Uint32 color = 0;
+uint32_t color = 0;
 #endif
 
 static font_t * _font = NULL;
 extern double volume;
+uint32_t elm = 0;
 
 int main(int argv, char** args) {
   if (gfx_setup() != 0) {
@@ -79,13 +80,13 @@ void gfx_cleanup(void) {
 }
 
 void gfx_run(void) {
-  Uint32 frameDelay = 1000 / FPS;
-  Uint32 frameStart;
-  Uint32 frameTime;
+  uint32_t delay = 1000 / FPS;
+  uint32_t start;
+  uint32_t busytime;
   SDL_Event event;
 
   while (1) {
-    frameStart = SDL_GetTicks();
+    start = SDL_GetTicks();
 
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
@@ -112,16 +113,16 @@ void gfx_run(void) {
     }
 
     gfx_clear();
-    render();
+    render(delay - busytime);
 #ifdef USE_SDL2
     SDL_RenderPresent(renderer);
 #else
     SDL_Flip(screen);
 #endif
 
-    frameTime = SDL_GetTicks() - frameStart;
-    if (frameDelay > frameTime) {
-      SDL_Delay(frameDelay - frameTime);
+    busytime = SDL_GetTicks() - start;
+    if (delay > busytime) {
+      SDL_Delay(delay - busytime);
     }
   }
 }
@@ -132,6 +133,7 @@ void gfx_point(int x, int y) {
 #else
   ((Uint32 *)screen->pixels)[y * screen->w + x] = color;
 #endif
+  elm++;
 }
 
 void gfx_set_color(int r, int g, int b) {
@@ -209,6 +211,7 @@ void gfx_clear(void) {
 #else
   SDL_FillRect(screen, NULL, 0);
 #endif
+  elm = 0;
 }
 
 void gfx_fill_rect(int x, int y, int w, int h) {
@@ -219,4 +222,5 @@ void gfx_fill_rect(int x, int y, int w, int h) {
   SDL_Rect rect = { x, y, w, h };
   SDL_FillRect(screen, &rect, color);
 #endif
+  elm++;
 }

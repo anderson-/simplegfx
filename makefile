@@ -55,6 +55,16 @@ APPS := /mnt/mmc/Roms/APPS
 	echo "LD_PRELOAD=./j2k.so ./gfx.rg35xx" >> ${BUILD}/launcher.sh
 	chmod +x ${BUILD}/launcher.sh
 
+.PHONY: RG35xx-deploy
+RG35xx-deploy: RG35xx .RG35xx-sh
+	rm -rf ${BUILD}/deploy
+	mkdir -p ${BUILD}/deploy/${APP}
+	cp ${BUILD}/gfx.rg35xx ${BUILD}/deploy/${APP}
+	cp ${BUILD}/launcher.sh ${BUILD}/deploy/${APP}.sh
+	cp ${BUILD}/j2k.so ${BUILD}/deploy/${APP}
+	cd ${BUILD}/deploy && zip -r ${APP}.zip ${APP} ${APP}.sh
+	mv ${BUILD}/deploy/${APP}.zip ${BUILD}/${APP}.zip
+
 .PHONY: .check-adb
 .check-adb:
 	@which ${ADB} > /dev/null || (echo "adb not found, please install Android SDK" && exit 1)

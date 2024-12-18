@@ -9,6 +9,7 @@ uint32_t color = 0;
 #endif
 
 static font_t * _font = NULL;
+static unsigned int seed = 0;
 extern double volume;
 uint32_t elm = 0;
 
@@ -29,7 +30,7 @@ int gfx_setup(void) {
   }
 
 #ifdef USE_SDL2
-  window = SDL_CreateWindow("Random Rectangles",
+  window = SDL_CreateWindow("SDL",
                             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                             WINDOW_WIDTH, WINDOW_HEIGHT,
                             SDL_WINDOW_SHOWN);
@@ -55,10 +56,10 @@ int gfx_setup(void) {
     return 1;
   }
 
-  SDL_WM_SetCaption("Random Rectangles", NULL);
+  SDL_WM_SetCaption("SDL", NULL);
 #endif
   SDL_ShowCursor(SDL_DISABLE);
-  srand((unsigned int)time(NULL));
+  seed = (unsigned int)time(NULL);
 
   if (audio_setup() != 0) {
     printf("Audio setup failed\n");
@@ -223,4 +224,9 @@ void gfx_fill_rect(int x, int y, int w, int h) {
   SDL_FillRect(screen, &rect, color);
 #endif
   elm++;
+}
+
+int fast_rand(void) {
+  seed = seed * 1103515245 + 12345;
+  return (unsigned int)(seed / 65536) % 32768;
 }

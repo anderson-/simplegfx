@@ -43,6 +43,10 @@ extern uint32_t elm;
 #define M_PI 3.14159265
 #endif
 
+#ifndef STD_RAND
+#define rand fast_rand
+#endif
+
 int gfx_setup(void);
 void gfx_cleanup(void);
 void gfx_point(int x, int y);
@@ -55,6 +59,8 @@ void gfx_beep(int freq, int ms);
 void gfx_clear(void);
 void gfx_fill_rect(int x, int y, int w, int h);
 void gfx_run(void);
+
+int fast_rand(void);
 
 extern void render(int freetime);
 extern int on_key(char key, int down);

@@ -33,6 +33,7 @@ void render(void) {
 int on_key(char key, int down) {
   if (down) {
     printf("Key pressed: %d\n", key);
+    beep(261, 50);
     if (key == BTN_MENU) {
       menu = 1;
     }
@@ -42,6 +43,7 @@ int on_key(char key, int down) {
     last_key = key;
   } else {
     printf("Key released: %d\n", key);
+    beep(392, 50);
     if (key == BTN_MENU) {
       menu = 0;
     }

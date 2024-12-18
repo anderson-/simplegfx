@@ -9,6 +9,7 @@ Uint32 color = 0;
 #endif
 
 static font_t * _font = NULL;
+extern double volume;
 
 int main(int argv, char** args) {
   if (gfx_setup() != 0) {
@@ -57,6 +58,12 @@ int gfx_setup(void) {
 #endif
   SDL_ShowCursor(SDL_DISABLE);
   srand((unsigned int)time(NULL));
+
+  if (audio_setup() != 0) {
+    printf("Audio setup failed\n");
+    return 1;
+  }
+
   return 0;
 }
 
@@ -67,6 +74,7 @@ void gfx_cleanup(void) {
 #else
   SDL_FreeSurface(screen);
 #endif
+  audio_cleanup();
   SDL_Quit();
 }
 
@@ -89,6 +97,12 @@ void gfx_run(void) {
                 || event.key.keysym.sym == 27) {
           printf("Exit key pressed\n");
           return;
+        } else if (event.key.keysym.sym == BTN_VOLUME_UP) {
+          volume *= 2;
+          if (volume > 0.5) volume = 0.5;
+        } else if (event.key.keysym.sym == BTN_VOLUME_DOWN) {
+          volume /= 2;
+          if (volume <= 0.05) volume = 0.05;
         }
       } else if (event.type == SDL_KEYUP) {
         if (on_key(event.key.keysym.sym, 0) != 0) {

@@ -31,9 +31,15 @@ extern "C" {
 #endif
 
 #include <time.h>
+#include <math.h>
 #include <rg35xx_btns.h>
 #include <simplefont.h>
 #include <font5x7.h>
+#include <simpleaudio.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265
+#endif
 
 int gfx_setup(void);
 void gfx_cleanup(void);

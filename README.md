@@ -10,6 +10,8 @@ SimpleGFX is a straightforward tool designed to help you create graphics using S
 - 16-bit tone generation for simple sound effects.
 - Minimal dependencies for portability and ease of use.
 
+![SimpleGFX](build/screenshot.png)
+
 ## System Requirements
 
 ### macOS

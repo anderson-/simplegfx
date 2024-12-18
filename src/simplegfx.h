@@ -31,6 +31,7 @@ extern "C" {
 #endif
 
 #include <time.h>
+#include <rg35xx_btns.h>
 #include <simplefont.h>
 #include <font5x7.h>
 

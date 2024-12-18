@@ -21,12 +21,12 @@ int main(int argv, char** args) {
 }
 
 int gfx_setup(void) {
-#ifdef USE_SDL2
-  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+  if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
     printf("SDL2 Initialization Error: %s\n", SDL_GetError());
     return 1;
   }
 
+#ifdef USE_SDL2
   window = SDL_CreateWindow("Random Rectangles",
                             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                             WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -45,11 +45,6 @@ int gfx_setup(void) {
     return 1;
   }
 #else
-  if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
-    printf("SDL1.2 Initialization Error: %s\n", SDL_GetError());
-    return 1;
-  }
-
   screen = SDL_SetVideoMode(WINDOW_WIDTH, WINDOW_HEIGHT,
                             32, SDL_HWSURFACE | SDL_DOUBLEBUF);
   if (!screen) {
@@ -90,7 +85,7 @@ void gfx_run(void) {
       } else if (event.type == SDL_KEYDOWN) {
         if (on_key(event.key.keysym.sym, 1) != 0) {
           return;
-        } else if (event.key.keysym.sym == 0
+        } else if (event.key.keysym.sym == BTN_POWER
                 || event.key.keysym.sym == 27) {
           printf("Exit key pressed\n");
           return;
@@ -161,7 +156,7 @@ void gfx_text(const char * text, int x, int y, int size) {
   int cx = x;
   font_t f = *_font;
   y += f.height * size;
-  for (int i = 0; i < strlen(text); i++) {
+  for (int i = 0; i < (int)strlen(text); i++) {
     uint8_t C = text[i];
     for (int c = 0; c < f.width; c++) {
       for (uint8_t l = 0; l < f.height; l++) {

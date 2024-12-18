@@ -50,20 +50,20 @@ APPS := /mnt/mmc/Roms/APPS
 .PHONY: .RG35xx-sh
 .RG35xx-sh:
 	echo "#!/bin/sh" > ${BUILD}/launcher.sh
-	echo "HOME=${APPS}/${APP}" >> ${BUILD}/launcher.sh
+	echo "HOME=\$$(dirname \"\$$0\")/${APP}" >> ${BUILD}/launcher.sh
 	echo "cd \$$HOME" >> ${BUILD}/launcher.sh
 	echo "LD_PRELOAD=./j2k.so ./gfx.rg35xx" >> ${BUILD}/launcher.sh
 	chmod +x ${BUILD}/launcher.sh
 
 .PHONY: RG35xx-deploy
 RG35xx-deploy: RG35xx .RG35xx-sh
-	rm -rf ${BUILD}/deploy
 	mkdir -p ${BUILD}/deploy/${APP}
 	cp ${BUILD}/gfx.rg35xx ${BUILD}/deploy/${APP}
 	cp ${BUILD}/launcher.sh ${BUILD}/deploy/${APP}.sh
 	cp ${BUILD}/j2k.so ${BUILD}/deploy/${APP}
 	cd ${BUILD}/deploy && zip -r ${APP}.zip ${APP} ${APP}.sh
 	mv ${BUILD}/deploy/${APP}.zip ${BUILD}/${APP}.zip
+	rm -rf ${BUILD}/deploy
 
 .PHONY: .check-adb
 .check-adb:

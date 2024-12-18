@@ -7,6 +7,7 @@ SimpleGFX is a straightforward tool designed to help you create graphics using S
 - Compatibility with SDL 1.2 and SDL 2.
 - Supports macOS and RG35xx platforms.
 - Basic text rendering functionality.
+- 16-bit tone generation for simple sound effects.
 - Minimal dependencies for portability and ease of use.
 
 ## System Requirements

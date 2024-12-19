@@ -57,18 +57,20 @@ void gfx_set_color(int r, int g, int b);
 void gfx_set_font(font_t * font);
 font_t * gfx_get_font(void);
 int gfx_font_table(int x, int y, int size);
-void gfx_text(const char * text, int x, int y, int size);
+int gfx_text(const char * text, int x, int y, int size);
 int gfx_clear_text_buffer(void);
 int gfx_printf(const char * format, ...);
 void gfx_clear(void);
 void gfx_fill_rect(int x, int y, int w, int h);
 void gfx_run(void);
 void gfx_screenshot(const char * filename);
+void gfx_delay(int ms);
 
 int fast_rand(void);
 
-extern void render(int freetime);
+extern void render(float fps);
 extern int on_key(char key, int down);
+extern void process_data(int compute_time);
 
 #ifdef __cplusplus
 }

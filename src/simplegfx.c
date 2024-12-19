@@ -91,6 +91,7 @@ void gfx_run(void) {
   uint32_t delay = 1000 / FPS;
   uint32_t start;
   uint32_t busytime = 0;
+  float fps = 0;
   SDL_Event event;
 
   while (1) {
@@ -130,7 +131,7 @@ void gfx_run(void) {
     }
 
     gfx_clear();
-    render(delay - busytime);
+    render(fps);
 #ifdef USE_SDL2
     SDL_RenderPresent(renderer);
 #else
@@ -146,7 +147,19 @@ void gfx_run(void) {
 
     busytime = SDL_GetTicks() - start;
     if (delay > busytime) {
-      SDL_Delay(delay - busytime);
+      while (1) {
+        process_data(delay - busytime);
+        busytime = SDL_GetTicks() - start;
+        if (busytime >= delay) {
+          break;
+        }
+      }
+    }
+
+    float frame_time = (SDL_GetTicks() - start) / 1000.0f;
+    if (frame_time > 0) {
+      float current_fps = 1.0f / frame_time;
+      fps = (0.1f * current_fps) + (0.9f * fps);
     }
   }
 }
@@ -192,22 +205,26 @@ font_t * gfx_get_font(void) {
   return _font;
 }
 
-void gfx_text(const char * text, int x, int y, int size) {
+int gfx_text(const char * text, int x, int y, int size) {
   if (text == NULL) {
-    return;
+    return 0;
   }
   int cx = x;
+  int cy = y;
   font_t f = *_font;
   int fheight = f.height;
   int fwidth = f.width;
-  y += fheight * size;
+  cy += fheight * size;
   int len = (int)strlen(text);
   for (int i = 0; i < len; i++) {
     uint8_t C = text[i];
     if (C == '\r' && text[i + 1] == '\n') {
       i++;
       cx = x;
-      y += fheight * size + size;
+      cy += fheight * size + size;
+      if (cy > WINDOW_HEIGHT) {
+        cy = y;
+      }
       continue;
     }
     for (int c = 0; c < fwidth; c++) {
@@ -215,15 +232,21 @@ void gfx_text(const char * text, int x, int y, int size) {
         uint8_t mask = 1 << (fheight - l - 1);
         if (f.data[C * fwidth + c] & mask) {
           if (size == 1) {
-            gfx_point(cx + c, y - l);
+            gfx_point(cx + c, cy - l);
           } else {
-            gfx_fill_rect(cx + c * size, y - l * size, size, size);
+            gfx_fill_rect(cx + c * size, cy - l * size, size, size);
           }
         }
       }
     }
     cx += fwidth * size + size;
+    if (cx > WINDOW_WIDTH) {
+      cx = x;
+      cy += fheight * size + size;
+    }
   }
+  cy += fheight * size + size;
+  return cy;
 }
 
 int gfx_clear_text_buffer(void) {
@@ -309,4 +332,8 @@ void gfx_screenshot(const char * filename) {
 #else
   SDL_SaveBMP(screen, filename);
 #endif
+}
+
+void gfx_delay(int ms) {
+  SDL_Delay(ms);
 }

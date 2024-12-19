@@ -39,8 +39,11 @@ int gfx_setup(void) {
     SDL_Quit();
     return 1;
   }
-
+#ifdef SCREENSHOT
+  renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+#else
   renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+#endif
   if (!renderer) {
     printf("SDL2 Create Renderer Error: %s\n", SDL_GetError());
     SDL_DestroyWindow(window);
@@ -83,7 +86,7 @@ void gfx_cleanup(void) {
 void gfx_run(void) {
   uint32_t delay = 1000 / FPS;
   uint32_t start;
-  uint32_t busytime;
+  uint32_t busytime = 0;
   SDL_Event event;
 
   while (1) {
@@ -105,12 +108,21 @@ void gfx_run(void) {
         } else if (event.key.keysym.sym == BTN_VOLUME_DOWN) {
           volume /= 2;
           if (volume <= 0.05) volume = 0.05;
+        } else if (event.key.keysym.sym == 92) {
+          gfx_screenshot("build/screenshot.bmp");
         }
       } else if (event.type == SDL_KEYUP) {
         if (on_key(event.key.keysym.sym, 0) != 0) {
           return;
         }
       }
+#if defined(USE_SDL2) && defined(SCREENSHOT)
+      if (event.type == SDL_WINDOWEVENT &&
+        event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+        gfx_screenshot("build/screenshot.bmp");
+        return;
+      }
+#endif
     }
 
     gfx_clear();
@@ -119,6 +131,13 @@ void gfx_run(void) {
     SDL_RenderPresent(renderer);
 #else
     SDL_Flip(screen);
+#endif
+
+#if !defined(USE_SDL2) && defined(SCREENSHOT)
+    if (SDL_GetAppState() & SDL_APPACTIVE) {
+      gfx_screenshot("build/screenshot.bmp");
+      return;
+    }
 #endif
 
     busytime = SDL_GetTicks() - start;
@@ -229,4 +248,16 @@ void gfx_fill_rect(int x, int y, int w, int h) {
 int fast_rand(void) {
   seed = seed * 1103515245 + 12345;
   return (unsigned int)(seed / 65536) % 32768;
+}
+
+void gfx_screenshot(const char * filename) {
+  printf("Saving screenshot\n");
+#ifdef USE_SDL2
+  SDL_Surface * s = SDL_CreateRGBSurface(0, WINDOW_WIDTH, WINDOW_HEIGHT, 32, 0, 0, 0, 0);
+  SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, s->pixels, s->pitch);
+  SDL_SaveBMP(s, filename);
+  SDL_FreeSurface(s);
+#else
+  SDL_SaveBMP(screen, filename);
+#endif
 }

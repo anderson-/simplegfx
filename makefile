@@ -30,7 +30,7 @@ gfx:
 .PHONY: gfx1.2
 gfx1.2:
 	mkdir -p ${BUILD}
-	${CC} ${MAIN_SRC} ${CFLAGS} -lSDL -ldl -lm ${OUTPUT}
+	${CC} ${MAIN_SRC} ${CFLAGS} -lSDL ${OUTPUT}
 	chmod +x ${BUILD}/gfx
 
 .PHONY: .RG35xx
@@ -42,6 +42,22 @@ gfx1.2:
 .PHONY: RG35xx
 RG35xx:
 	${DOCKER} nfriedly/miyoo-toolchain:steward make .RG35xx CC=gcc
+
+.PHONY: screenshot
+screenshot:
+	mkdir -p ${BUILD}
+	${CC} ${MAIN_SRC} ${CFLAGS} -lSDL2 -DUSE_SDL2 -DSCREENSHOT ${OUTPUT}
+	chmod +x ${BUILD}/gfx
+	./${BUILD}/gfx
+	convert ${BUILD}/screenshot.bmp ${BUILD}/screenshot.png
+
+.PHONY: screenshot1.2
+screenshot1.2:
+	mkdir -p ${BUILD}
+	${CC} ${MAIN_SRC} ${CFLAGS} -lSDL -DSCREENSHOT ${OUTPUT}
+	chmod +x ${BUILD}/gfx
+	./${BUILD}/gfx
+	convert ${BUILD}/screenshot.bmp ${BUILD}/screenshot.png
 
 APP := example
 ADB := adb

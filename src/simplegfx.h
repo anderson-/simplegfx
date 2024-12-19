@@ -59,6 +59,7 @@ void gfx_beep(int freq, int ms);
 void gfx_clear(void);
 void gfx_fill_rect(int x, int y, int w, int h);
 void gfx_run(void);
+void gfx_screenshot(const char * filename);
 
 int fast_rand(void);
 

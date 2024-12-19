@@ -31,6 +31,9 @@ extern "C" {
 #endif
 
 extern uint32_t elm;
+extern char * printf_buf;
+extern int printf_size;
+extern int printf_len;
 
 #include <time.h>
 #include <math.h>
@@ -55,7 +58,8 @@ void gfx_set_font(font_t * font);
 font_t * gfx_get_font(void);
 int gfx_font_table(int x, int y, int size);
 void gfx_text(const char * text, int x, int y, int size);
-void gfx_beep(int freq, int ms);
+int gfx_clear_text_buffer(void);
+int gfx_printf(const char * format, ...);
 void gfx_clear(void);
 void gfx_fill_rect(int x, int y, int w, int h);
 void gfx_run(void);

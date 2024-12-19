@@ -12,6 +12,9 @@ static font_t * _font = NULL;
 static unsigned int seed = 0;
 extern double volume;
 uint32_t elm = 0;
+char * printf_buf = NULL;
+int printf_size = 0;
+int printf_len = 0;
 
 int main(int argv, char** args) {
   if (gfx_setup() != 0) {
@@ -80,6 +83,7 @@ void gfx_cleanup(void) {
   SDL_FreeSurface(screen);
 #endif
   audio_cleanup();
+  gfx_clear_text_buffer();
   SDL_Quit();
 }
 
@@ -208,6 +212,39 @@ void gfx_text(const char * text, int x, int y, int size) {
     }
     cx += f.width * size + size;
   }
+}
+
+int gfx_clear_text_buffer(void) {
+  if (printf_buf != NULL) {
+    free(printf_buf);
+    printf_buf = NULL;
+  }
+  printf_size = 0;
+  printf_len = 0;
+  return 0;
+}
+
+int gfx_printf(const char * format, ...) {
+  va_list args;
+  va_start(args, format);
+  int len = vsnprintf(NULL, 0, format, args);
+  va_end(args);
+  if (len < 0) {
+    return -1;
+  }
+  if (len + printf_len >= printf_size) {
+    printf_size = (len + printf_len + 64) * 2;
+    char * new_buf = (char *)realloc(printf_buf, printf_size);
+    if (new_buf == NULL) {
+      return -1;
+    }
+    printf_buf = new_buf;
+  }
+  va_start(args, format);
+  vsnprintf(printf_buf + printf_len, printf_size - printf_len, format, args);
+  va_end(args);
+  printf_len += len;
+  return len;
 }
 
 int gfx_font_table(int x, int y, int size) {

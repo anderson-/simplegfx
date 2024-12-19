@@ -193,15 +193,27 @@ font_t * gfx_get_font(void) {
 }
 
 void gfx_text(const char * text, int x, int y, int size) {
+  if (text == NULL) {
+    return;
+  }
   int cx = x;
   font_t f = *_font;
-  y += f.height * size;
-  for (int i = 0; i < (int)strlen(text); i++) {
+  int fheight = f.height;
+  int fwidth = f.width;
+  y += fheight * size;
+  int len = (int)strlen(text);
+  for (int i = 0; i < len; i++) {
     uint8_t C = text[i];
-    for (int c = 0; c < f.width; c++) {
-      for (uint8_t l = 0; l < f.height; l++) {
-        uint8_t mask = 1 << (f.height - l - 1);
-        if (f.data[C * f.width + c] & mask) {
+    if (C == '\r' && text[i + 1] == '\n') {
+      i++;
+      cx = x;
+      y += fheight * size + size;
+      continue;
+    }
+    for (int c = 0; c < fwidth; c++) {
+      for (uint8_t l = 0; l < fheight; l++) {
+        uint8_t mask = 1 << (fheight - l - 1);
+        if (f.data[C * fwidth + c] & mask) {
           if (size == 1) {
             gfx_point(cx + c, y - l);
           } else {
@@ -210,7 +222,7 @@ void gfx_text(const char * text, int x, int y, int size) {
         }
       }
     }
-    cx += f.width * size + size;
+    cx += fwidth * size + size;
   }
 }
 

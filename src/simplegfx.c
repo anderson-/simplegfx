@@ -91,7 +91,7 @@ void gfx_run(void) {
   uint32_t delay = 1000 / FPS;
   uint32_t start;
   uint32_t busytime = 0;
-  float fps = 0;
+  float fps = FPS;
   SDL_Event event;
 
   while (1) {

@@ -23,6 +23,7 @@ int main(int argv, char** args) {
   }
   gfx_set_font(&font5x7);
   gfx_run();
+  gfx_app(0);
   gfx_cleanup();
   return 0;
 }
@@ -95,6 +96,8 @@ void gfx_run(void) {
   float fps = FPS;
   SDL_Event event;
 
+  gfx_app(1);
+
   while (1) {
     start = SDL_GetTicks();
 
@@ -102,7 +105,7 @@ void gfx_run(void) {
       if (event.type == SDL_QUIT) {
         return;
       } else if (event.type == SDL_KEYDOWN) {
-        if (on_key(event.key.keysym.sym, 1) != 0) {
+        if (gfx_on_key(event.key.keysym.sym, 1) != 0) {
           return;
         } else if (event.key.keysym.sym == BTN_POWER) {
           printf("Exit key pressed\n");
@@ -120,7 +123,7 @@ void gfx_run(void) {
           gfx_screenshot("build/screenshot.bmp");
         }
       } else if (event.type == SDL_KEYUP) {
-        if (on_key(event.key.keysym.sym, 0) != 0) {
+        if (gfx_on_key(event.key.keysym.sym, 0) != 0) {
           return;
         }
       }
@@ -134,7 +137,7 @@ void gfx_run(void) {
     }
 
     gfx_clear();
-    render(fps);
+    gfx_draw(fps);
 #ifdef USE_SDL2
     SDL_RenderPresent(renderer);
 #else
@@ -151,7 +154,7 @@ void gfx_run(void) {
     busytime = SDL_GetTicks() - start;
     if (delay > busytime) {
       while (1) {
-        process_data(delay - busytime);
+        gfx_process_data(delay - busytime);
         busytime = SDL_GetTicks() - start;
         if (busytime >= delay) {
           break;
@@ -320,7 +323,7 @@ void gfx_fill_rect(int x, int y, int w, int h) {
   elm++;
 }
 
-int fast_rand(void) {
+int gfx_fast_rand(void) {
   seed = seed * 1103515245 + 12345;
   return (unsigned int)(seed / 65536) % 32768;
 }

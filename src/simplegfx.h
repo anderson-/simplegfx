@@ -47,7 +47,7 @@ extern int full_kb;
 #endif
 
 #ifndef STD_RAND
-#define rand fast_rand
+#define rand gfx_fast_rand
 #endif
 
 int gfx_setup(void);
@@ -66,11 +66,12 @@ void gfx_run(void);
 void gfx_screenshot(const char * filename);
 void gfx_delay(int ms);
 
-int fast_rand(void);
+int gfx_fast_rand(void);
 
-extern void render(float fps);
-extern int on_key(char key, int down);
-extern void process_data(int compute_time);
+extern void gfx_app(int init);
+extern void gfx_draw(float fps);
+extern int gfx_on_key(char key, int down);
+extern void gfx_process_data(int compute_time);
 
 #ifdef __cplusplus
 }

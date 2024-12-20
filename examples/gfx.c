@@ -13,12 +13,20 @@ int compute_loops = 0;
 extern uint32_t elm;
 extern int printf_len;
 
-void process_data(int compute_time) {
+void gfx_app(int init) {
+  if (init) {
+    printf("App started\n");
+  } else {
+    printf("App stopped\n");
+  }
+}
+
+void gfx_process_data(int compute_time) {
   gfx_delay(1);
   compute_loops++;
 }
 
-void render(float fps) {
+void gfx_draw(float fps) {
   for (int i = 0; i < RECT_COUNT; i++) {
     gfx_set_color(rand() % 30 + 10, rand() % (menu ? 60 : 30) + 10, rand() % 90 + 10);
     gfx_fill_rect(rand() % WINDOW_WIDTH, rand() % WINDOW_HEIGHT, rand() % 50 + 10, rand() % 50 + 10);
@@ -55,7 +63,7 @@ void render(float fps) {
   compute_loops = 0;
 }
 
-int on_key(char key, int down) {
+int gfx_on_key(char key, int down) {
   if (down) {
     gfx_printf("(pressed: %d) ", key);
     beep(261, 50);

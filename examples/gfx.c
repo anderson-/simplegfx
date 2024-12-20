@@ -10,6 +10,7 @@ keyinfo_t * keyinfo = NULL;
 char text[32] = {0};
 char menu = 0;
 int compute_loops = 0;
+int mb = 0;
 
 extern uint32_t elm;
 extern int printf_len;
@@ -20,6 +21,35 @@ void gfx_app(int init) {
   } else {
     printf("App stopped\n");
   }
+}
+int draw_mandelbrot_set() {
+  gfx_clear_text_buffer();
+  mb = 1;
+  uint16_t LL = 52;
+  uint16_t CC = 105;
+  for (uint16_t L = LL - 1; L > 0; L--) {
+    for (uint16_t C = CC - 1; C > 0; C--) {
+      float X = 0.0f, Y = 0.0f;
+      float CX = C / (CC / 3.0f) - 2;
+      float CY = L / (LL / 2.0f) - 1;
+      uint16_t I = 10;
+      while (1) {
+        float TX = X * X;
+        float TY = Y * Y;
+        if ((TX + TY > 4.0f)) {
+          break;
+        }
+        Y = 2.0f * X * Y + CY;
+        X = TX - TY + CX;
+        if (--I == 0) {
+          break;
+        }
+      }
+      gfx_printf("%c", I + 38);
+    }
+    gfx_printf("\r\n");
+  }
+  return 0;
 }
 
 void gfx_process_data(int compute_time) {
@@ -41,13 +71,16 @@ void gfx_draw(float fps) {
     y = gfx_font_table(10, y + 10, 2);
     gfx_set_color(0, 255, 255);
     y = gfx_font_table(10, y + 10, 3);
-  } else {
+  } else if (!mb) {
     gfx_set_color(255, 0, 255);
     y = gfx_text(printf_buf, 10, 50, 1);
     gfx_set_color(255, 255, 0);
     y = gfx_text(printf_buf, 10, y + 10, 2);
     gfx_set_color(0, 255, 255);
     y = gfx_text(printf_buf, 10, y + 10, 3);
+  } else {
+    gfx_set_color(57, 255, 20);
+    y = gfx_text(printf_buf, 8, 50, 1);
   }
 
   gfx_set_color(255, 255, 255);
@@ -76,6 +109,10 @@ int gfx_on_key(char key, int down) {
       break;
     }
   }
+  if (mb) {
+    mb = 0;
+    gfx_clear_text_buffer();
+  }
   if (down) {
     if (keyinfo) {
       gfx_printf("+%s ", keyinfo->name);
@@ -100,6 +137,8 @@ int gfx_on_key(char key, int down) {
     if (key == BTN_MENU) {
       gfx_clear_text_buffer();
       menu = 0;
+    } else if (key == BTN_B) {
+      draw_mandelbrot_set();
     }
     last_key = 0;
     keyinfo = NULL;

@@ -44,4 +44,11 @@
 #define BTN_EXIT        113
 #endif
 
+typedef struct {
+  int key;
+  const char * name;
+} keyinfo_t;
+
+extern keyinfo_t keymap[];
+
 #endif

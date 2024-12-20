@@ -6,6 +6,7 @@
 #define RECT_COUNT 1000
 
 char last_key = 0;
+keyinfo_t * keyinfo = NULL;
 char text[32] = {0};
 char menu = 0;
 int compute_loops = 0;
@@ -50,12 +51,17 @@ void gfx_draw(float fps) {
   }
 
   gfx_set_color(255, 255, 255);
-  gfx_text("\xae Press MENU + X to exit \xaf", 10, 10, 2);
-
   if (last_key != 0) {
-    sprintf(text, "key: %d", last_key);
-    gfx_text(text, 350, 10, 2);
+    if (keyinfo) {
+      sprintf(text, "key: %s/%d", keyinfo->name, last_key);
+    } else {
+      sprintf(text, "key: %d", last_key);
+    }
+    gfx_text(text, 10, 10, 2);
+  } else {
+    gfx_text("\xae Press MENU + X to exit \xaf", 10, 10, 2);
   }
+
   sprintf(text, "%.1f fps | %.1fk draws ", fps, elm/1000.0);
   gfx_text(text, 480, 8, 1);
   sprintf(text, "compute %d | buffer %.1fk", compute_loops, printf_len/1000.0);
@@ -64,6 +70,12 @@ void gfx_draw(float fps) {
 }
 
 int gfx_on_key(char key, int down) {
+  for (int i = 0; keymap[i].name; i++) {
+    if (keymap[i].key == key) {
+      keyinfo = &keymap[i];
+      break;
+    }
+  }
   if (down) {
     gfx_printf("(pressed: %d) ", key);
     beep(261, 50);
@@ -82,6 +94,7 @@ int gfx_on_key(char key, int down) {
       menu = 0;
     }
     last_key = 0;
+    keyinfo = NULL;
   }
   return 0;
 }

@@ -34,6 +34,7 @@ extern uint32_t elm;
 extern char * printf_buf;
 extern int printf_size;
 extern int printf_len;
+extern int full_kb;
 
 #include <time.h>
 #include <math.h>

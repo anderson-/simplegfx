@@ -15,6 +15,7 @@ uint32_t elm = 0;
 char * printf_buf = NULL;
 int printf_size = 0;
 int printf_len = 0;
+int full_kb = 0;
 
 int main(int argv, char** args) {
   if (gfx_setup() != 0) {
@@ -103,8 +104,10 @@ void gfx_run(void) {
       } else if (event.type == SDL_KEYDOWN) {
         if (on_key(event.key.keysym.sym, 1) != 0) {
           return;
-        } else if (event.key.keysym.sym == BTN_POWER
-                || event.key.keysym.sym == BTN_EXIT) {
+        } else if (event.key.keysym.sym == BTN_POWER) {
+          printf("Exit key pressed\n");
+          return;
+        } else if (full_kb && event.key.keysym.sym == BTN_EXIT) {
           printf("Exit key pressed\n");
           return;
         } else if (event.key.keysym.sym == BTN_VOLUME_UP) {

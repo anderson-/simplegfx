@@ -77,7 +77,11 @@ int gfx_on_key(char key, int down) {
     }
   }
   if (down) {
-    gfx_printf("(pressed: %d) ", key);
+    if (keyinfo) {
+      gfx_printf("+%s ", keyinfo->name);
+    } else {
+      gfx_printf("+%d ", key);
+    }
     beep(261, 50);
     if (key == BTN_MENU) {
       menu = 1;
@@ -87,7 +91,11 @@ int gfx_on_key(char key, int down) {
     }
     last_key = key;
   } else {
-    gfx_printf("\r\n{released: %d} ", key);
+    if (keyinfo) {
+      gfx_printf("-%s ", keyinfo->name);
+    } else {
+      gfx_printf("-%d ", key);
+    }
     beep(392, 50);
     if (key == BTN_MENU) {
       gfx_clear_text_buffer();

@@ -1,13 +1,7 @@
-#ifndef FONT5X7_H
-#define FONT5X7_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include <simplefont.h>
 
-static const uint8_t raw_font5x7[] = {
+const uint8_t raw_font5x7[] = {
   0x00, 0x00, 0x00, 0x00, 0x00,
   0x3E, 0x5B, 0x4F, 0x5B, 0x3E,
   0x3E, 0x6B, 0x4F, 0x6B, 0x3E,
@@ -267,10 +261,4 @@ static const uint8_t raw_font5x7[] = {
   FSTOP
 };
 
-static font_t font5x7 = {5, 7, (uint8_t *)raw_font5x7, 0};
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+font_t font5x7 = {5, 7, (uint8_t *)raw_font5x7, 0};

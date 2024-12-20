@@ -16,6 +16,8 @@ typedef struct {
   uint16_t count;
 } font_t;
 
+extern font_t font5x7;
+
 #ifdef __cplusplus
 }
 #endif

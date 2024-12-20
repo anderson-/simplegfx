@@ -39,7 +39,6 @@ extern int printf_len;
 #include <math.h>
 #include <rg35xx_btns.h>
 #include <simplefont.h>
-#include <font5x7.h>
 #include <simpleaudio.h>
 
 #ifndef M_PI

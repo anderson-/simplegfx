@@ -37,7 +37,7 @@ extern int printf_len;
 
 #include <time.h>
 #include <math.h>
-#include <rg35xx_btns.h>
+#include <keymap.h>
 #include <simplefont.h>
 #include <simpleaudio.h>
 

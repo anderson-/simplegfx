@@ -104,7 +104,7 @@ void gfx_run(void) {
         if (on_key(event.key.keysym.sym, 1) != 0) {
           return;
         } else if (event.key.keysym.sym == BTN_POWER
-                || event.key.keysym.sym == 27) {
+                || event.key.keysym.sym == BTN_EXIT) {
           printf("Exit key pressed\n");
           return;
         } else if (event.key.keysym.sym == BTN_VOLUME_UP) {

@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <simplegfx.h>
-#include <rg35xx_btns.h>
 
 #define RECT_COUNT 1000
 

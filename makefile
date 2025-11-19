@@ -106,3 +106,7 @@ RG35xx-adb-kill: .check-adb
 .PHONY: RG35xx-adb-logcat
 RG35xx-adb-logcat: .check-adb
 	${ADB} logcat
+
+.PHONY: shell
+shell:
+	nix-shell

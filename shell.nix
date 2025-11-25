@@ -8,6 +8,7 @@ pkgs.mkShell {
     SDL
     SDL2
     git
+    android-tools
   ];
 
   shellHook = ''

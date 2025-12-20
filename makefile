@@ -27,6 +27,12 @@ gfx:
 	${CC} ${MAIN_SRC} ${CFLAGS} -lSDL2 -DUSE_SDL2 ${OUTPUT}
 	chmod +x ${BUILD}/gfx
 
+.PHONY: world
+world:
+	mkdir -p ${BUILD}
+	${CC} examples/world.c ${CFLAGS} -lSDL2 -DUSE_SDL2 -o ${BUILD}/world
+	chmod +x ${BUILD}/world
+
 .PHONY: gfx1.2
 gfx1.2:
 	mkdir -p ${BUILD}

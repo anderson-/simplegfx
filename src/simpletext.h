@@ -7,8 +7,10 @@ extern "C" {
 
 void txt_set_size(int w, int h);
 void txt_get_size(int *w, int *h);
-void txt_set_colors(uint8_t fg, uint8_t bg);
+void txt_set_colors(int8_t fg, int8_t bg);
+void txt_reset_colors(void);
 void txt_set_cursor(int x, int y);
+void txt_shift_cursor(int sx, int sy);
 void txt_get_cursor(int *x, int *y);
 void txt_clear(void);
 void txt_putc(char c);
@@ -17,8 +19,8 @@ void txt_scroll(int lines);
 char* txt_get_text_buffer(void);
 uint8_t* txt_get_fg_buffer(void);
 uint8_t* txt_get_bg_buffer(void);
-void txt_set_color(uint8_t fg, uint8_t bg);
-void txt_get_color(uint8_t *fg, uint8_t *bg);
+void txt_set_color(int8_t fg, int8_t bg);
+void txt_get_color(int8_t *fg, int8_t *bg);
 
 #ifdef __cplusplus
 }

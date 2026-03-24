@@ -168,7 +168,7 @@ void gfx_draw(float fps) {
     if (!terminal_initialized) return;
 
     // Draw terminal at position (10, 10) with scale 2
-    gfxt_draw(10, 10, 2);
+    gfxt_draw(10, 10, 1);
 
     // Show FPS in corner
     gfx_set_color(100, 100, 100);
@@ -182,10 +182,36 @@ char last_key = 0;
 int gfx_on_key(char key, int down) {
     if (!terminal_initialized) return 0;
 
+
     if (!down) {
         last_key = 0;
         return 0;
     }
+
+    switch (key) {
+        case BTN_UP:
+            gfxt_on_key('\x1b', 1);
+            gfxt_on_key('[', 1);
+            gfxt_on_key('A', 1);
+            return 0;
+        case BTN_DOWN:
+            gfxt_on_key('\x1b', 1);
+            gfxt_on_key('[', 1);
+            gfxt_on_key('B', 1);
+            return 0;
+        case BTN_LEFT:
+            gfxt_on_key('\x1b', 1);
+            gfxt_on_key('[', 1);
+            gfxt_on_key('D', 1);
+            return 0;
+        case BTN_RIGHT:
+            gfxt_on_key('\x1b', 1);
+            gfxt_on_key('[', 1);
+            gfxt_on_key('C', 1);
+            return 0;
+    }
+
+
     if (key == last_key) {
         return 0;
     }

@@ -55,7 +55,7 @@ void gfxt_printf(const char *format, ...) {
         case 1: // ANSI_COLOR
           for (int i = 0; i < param_count; i++) {
             if (params[i] == 0) {
-              txt_set_color(7, 0);
+              txt_reset_colors();
             } else if (params[i] == 1) {
               // Bold/bright flag - not implemented separately
             } else if (params[i] >= 30 && params[i] <= 37) {
@@ -93,6 +93,8 @@ void gfxt_printf(const char *format, ...) {
 
   va_end(args);
 }
+
+int m = 0;
 
 void gfxt_draw(int x, int y, int size) {
   if (!initialized) return;
@@ -135,37 +137,27 @@ void gfxt_draw(int x, int y, int size) {
     }
   }
 
-  const char *prompt = repl_get_prompt();
-  const char *input = repl_get_input();
-  int cursor = repl_get_cursor();
+  int saved_cursor_x, saved_cursor_y;
+  txt_get_cursor(&saved_cursor_x, &saved_cursor_y);
 
-  int input_y = y + h * (fheight * size + size);
-  int input_x = x;
-
-  gfx_set_color(20, 20, 35);
-  gfx_fill_rect(x, input_y, w * (fwidth * size + size), fheight * size + size);
-
-  gfx_set_color(192, 192, 192);
-  gfx_text(prompt, input_x, input_y, size);
-  input_x += strlen(prompt) * (fwidth * size + size);
-
-  for (int i = 0; input[i]; i++) {
-    char buf[2] = { input[i], 0 };
-    if (i == cursor) {
-      gfx_set_color(255, 255, 255);
-      gfx_fill_rect(input_x, input_y, fwidth * size + size, fheight * size + size);
-      gfx_set_color(0, 0, 0);
-    } else {
-      gfx_set_color(192, 192, 192);
-    }
-    gfx_text(buf, input_x, input_y, size);
-    input_x += fwidth * size + size;
+  txt_set_cursor(0, h - 1);
+  for (int i = 0; i < w-1; i++) {
+    gfxt_printf(" ");
   }
 
-  if (cursor == strlen(input)) {
-    gfx_set_color(255, 255, 255);
-    gfx_fill_rect(input_x, input_y, fwidth * size + size, fheight * size + size);
-  }
+  txt_set_cursor(0, h - 1);
+  gfxt_printf("%s", repl_get_prompt());
+
+  int cursor = 0;
+  txt_get_cursor(&cursor, NULL);
+  cursor += repl_get_cursor();
+
+  gfxt_printf("%s", repl_get_input());
+
+  txt_set_cursor(cursor, h - 1);
+  gfxt_printf("\x1b[%dm%c\x1b[0m", (++m % 20 < 7) ? 40 : 47, text_buf[cursor + (h - 1) * w]);
+
+  txt_set_cursor(saved_cursor_x, saved_cursor_y);
 }
 
 void gfxt_on_key(uint8_t key, uint8_t modifiers) {

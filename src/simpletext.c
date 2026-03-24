@@ -31,11 +31,16 @@ void txt_get_size(int *w, int *h) {
   if (h) *h = term_h;
 }
 
-void txt_set_colors(uint8_t fg, uint8_t bg) {
-  default_fg = fg;
-  default_bg = bg;
-  current_fg = fg;
-  current_bg = bg;
+void txt_set_colors(int8_t fg, int8_t bg) {
+  if (fg != -1) default_fg = fg;
+  if (bg != -1) default_bg = bg;
+  current_fg = default_fg;
+  current_bg = default_bg;
+}
+
+void txt_reset_colors(void) {
+  current_fg = default_fg;
+  current_bg = default_bg;
 }
 
 void txt_set_cursor(int x, int y) {
@@ -43,6 +48,15 @@ void txt_set_cursor(int x, int y) {
     cursor_x = x;
     cursor_y = y;
   }
+}
+
+void txt_shift_cursor(int sx, int sy) {
+  cursor_x += sx;
+  cursor_y += sy;
+  if (cursor_x < 0) cursor_x = 0;
+  if (cursor_y < 0) cursor_y = 0;
+  if (cursor_x >= term_w) cursor_x = term_w - 1;
+  if (cursor_y >= term_h) cursor_y = term_h - 1;
 }
 
 void txt_get_cursor(int *x, int *y) {
@@ -70,7 +84,7 @@ void txt_putc(char c) {
     cursor_x = 0;
   } else if (c == '\t') {
     cursor_x = (cursor_x + 8) & ~7;
-  } else if (c >= ' ') {
+  } else {
     if (pos < term_w * term_h) {
       text_buf[pos] = c;
       fg_buf[pos] = current_fg;
@@ -126,12 +140,12 @@ uint8_t* txt_get_bg_buffer(void) {
   return bg_buf;
 }
 
-void txt_set_color(uint8_t fg, uint8_t bg) {
-  current_fg = fg;
-  current_bg = bg;
+void txt_set_color(int8_t fg, int8_t bg) {
+  if (fg != -1) current_fg = fg;
+  if (bg != -1) current_bg = bg;
 }
 
-void txt_get_color(uint8_t *fg, uint8_t *bg) {
+void txt_get_color(int8_t *fg, int8_t *bg) {
   if (fg) *fg = current_fg;
   if (bg) *bg = current_bg;
 }

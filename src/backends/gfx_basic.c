@@ -19,4 +19,7 @@ void gfx_run(void) {
 void gfx_screenshot(const char * filename) { }
 void gfx_delay(int ms) { }
 
+double volume = 0.2;
+void beep(int freq, int ms) { (void)freq; (void)ms; }
+
 #endif

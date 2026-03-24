@@ -27,7 +27,6 @@ extern "C" {
 #include <math.h>
 #include "keymap.h"
 #include "simplefont.h"
-#include "simpleaudio.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265
@@ -80,6 +79,8 @@ uint16_t* gfx_get_frame_buffer(void);
   #include <SDL/SDL.h>
   extern SDL_Surface * screen;
 #endif
+void beep(int freq, int ms);
+extern double volume;
 #endif
 
 // Callbacks to be implemented by the user app

@@ -261,4 +261,4 @@ const uint8_t raw_font5x7[] = {
   FSTOP
 };
 
-font_t font5x7 = {5, 7, (uint8_t *)raw_font5x7, 0};
+font_t font5x7 = {5, 8, (uint8_t *)raw_font5x7, 0};

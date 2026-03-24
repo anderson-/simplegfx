@@ -7,9 +7,6 @@
 #include "simplerepl.h"
 #include "simpleansi.h"
 
-#define FONT_W 5
-#define FONT_H 7
-
 static int term_w_chars = 40;
 static int term_h_chars = 12;
 static int initialized = 0;
@@ -107,6 +104,11 @@ void gfxt_draw(int x, int y, int size) {
   uint8_t *fg_buf = txt_get_fg_buffer();
   uint8_t *bg_buf = txt_get_bg_buffer();
 
+  font_t *current_font = gfx_get_font();
+  font_t f = *current_font;
+  int fheight = f.height;
+  int fwidth = f.width;
+
   for (int row = 0; row < h; row++) {
     for (int col = 0; col < w; col++) {
       int pos = row * w + col;
@@ -114,13 +116,13 @@ void gfxt_draw(int x, int y, int size) {
       uint8_t fg = fg_buf[pos];
       uint8_t bg = bg_buf[pos];
 
-      int px = x + col * FONT_W * size;
-      int py = y + row * FONT_H * size;
+      int px = x + col * (fwidth * size + size);
+      int py = y + row * (fheight * size + size);
 
       uint8_t bg_r, bg_g, bg_b;
       ansi_color_to_rgb(bg, &bg_r, &bg_g, &bg_b);
       gfx_set_color(bg_r, bg_g, bg_b);
-      gfx_fill_rect(px, py, FONT_W * size, FONT_H * size);
+      gfx_fill_rect(px, py, fwidth * size + size, fheight * size + size);
 
       if (c != ' ') {
         uint8_t fg_r, fg_g, fg_b;
@@ -137,32 +139,32 @@ void gfxt_draw(int x, int y, int size) {
   const char *input = repl_get_input();
   int cursor = repl_get_cursor();
 
-  int input_y = y + h * FONT_H * size;
+  int input_y = y + h * (fheight * size + size);
   int input_x = x;
 
   gfx_set_color(20, 20, 35);
-  gfx_fill_rect(x, input_y, w * FONT_W * size, FONT_H * size);
+  gfx_fill_rect(x, input_y, w * (fwidth * size + size), fheight * size + size);
 
   gfx_set_color(192, 192, 192);
   gfx_text(prompt, input_x, input_y, size);
-  input_x += strlen(prompt) * FONT_W * size;
+  input_x += strlen(prompt) * (fwidth * size + size);
 
   for (int i = 0; input[i]; i++) {
     char buf[2] = { input[i], 0 };
     if (i == cursor) {
       gfx_set_color(255, 255, 255);
-      gfx_fill_rect(input_x, input_y, FONT_W * size, FONT_H * size);
+      gfx_fill_rect(input_x, input_y, fwidth * size + size, fheight * size + size);
       gfx_set_color(0, 0, 0);
     } else {
       gfx_set_color(192, 192, 192);
     }
     gfx_text(buf, input_x, input_y, size);
-    input_x += FONT_W * size;
+    input_x += fwidth * size + size;
   }
 
   if (cursor == strlen(input)) {
     gfx_set_color(255, 255, 255);
-    gfx_fill_rect(input_x, input_y, FONT_W * size, FONT_H * size);
+    gfx_fill_rect(input_x, input_y, fwidth * size + size, fheight * size + size);
   }
 }
 

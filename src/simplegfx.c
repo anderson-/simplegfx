@@ -123,8 +123,8 @@ int gfx_font_table(int x, int y, int size) {
     return y + 8 * (f.height * size + size);
 }
 
+static unsigned int _seed = 12345;
 int gfx_fast_rand(void) {
-    if (seed == 0) seed = (unsigned int)time(NULL);
-    seed = seed * 1103515245 + 12345;
-    return (unsigned int)(seed / 65536) % 32768;
+  _seed = _seed * 1103515245 + 12345;
+  return (unsigned int)(_seed / 65536) % 32768;
 }

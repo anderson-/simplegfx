@@ -7,6 +7,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#if __has_include("gfx_config.h")
+#include "gfx_config.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,10 +34,6 @@ extern "C" {
 
 #ifndef M_PI
 #define M_PI 3.14159265
-#endif
-
-#ifndef STD_RAND
-#define rand gfx_fast_rand
 #endif
 
 // Common variables
@@ -66,7 +66,7 @@ void gfx_screenshot(const char * filename);
 void gfx_delay(int ms);
 
 // Backend specific
-#ifdef GFX_BUFFER
+#if defined(GFX_BUFFER) || !(defined(GFX_SDL) || defined(GFX_SDL2))
 uint16_t* gfx_get_frame_buffer(void);
 #endif
 

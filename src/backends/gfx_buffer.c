@@ -1,6 +1,6 @@
 #include "simplegfx.h"
 
-#ifdef GFX_BUFFER
+#if defined(GFX_BUFFER) || !(defined(GFX_SDL) || defined(GFX_SDL2))
 
 static uint16_t currentColor = 0xFFFF;
 static uint16_t frameBuffer[WINDOW_WIDTH * WINDOW_HEIGHT];
@@ -54,7 +54,7 @@ void gfx_screenshot(const char * filename) {
 void gfx_delay(int ms) {
 }
 
-double volume = 0.2;
-void beep(int freq, int ms) { (void)freq; (void)ms; }
+//double volume = 0.2;
+//void beep(int freq, int ms) { (void)freq; (void)ms; }
 
 #endif

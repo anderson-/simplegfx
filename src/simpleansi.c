@@ -92,33 +92,37 @@ int ansi_get_param_count(void) {
 }
 
 void ansi_color_to_rgb(int code, uint8_t *r, uint8_t *g, uint8_t *b) {
-  if (code >= 30 && code <= 37) {
-    code -= 30;
-    static const uint8_t colors[8][3] = {
-      {0, 0, 0},     // black
-      {128, 0, 0},   // red
-      {0, 128, 0},   // green
-      {128, 128, 0}, // yellow
-      {0, 0, 128},   // blue
-      {128, 0, 128}, // magenta
-      {0, 128, 128}, // cyan
-      {192, 192, 192} // white
-    };
+  // Cores normais (0-7) e bright (8-15)
+  static const uint8_t colors[16][3] = {
+    {0, 0, 0},       // 0: black
+    {128, 0, 0},     // 1: red
+    {0, 128, 0},     // 2: green
+    {128, 128, 0},   // 3: yellow
+    {0, 0, 128},     // 4: blue
+    {128, 0, 128},   // 5: magenta
+    {0, 128, 128},   // 6: cyan
+    {192, 192, 192}, // 7: white
+    {64, 64, 64},    // 8: bright black (gray)
+    {255, 0, 0},     // 9: bright red
+    {0, 255, 0},     // 10: bright green
+    {255, 255, 0},   // 11: bright yellow
+    {0, 0, 255},     // 12: bright blue
+    {255, 0, 255},   // 13: bright magenta
+    {0, 255, 255},   // 14: bright cyan
+    {255, 255, 255}  // 15: bright white
+  };
+
+  if (code >= 0 && code <= 15) {
+    if (r) *r = colors[code][0];
+    if (g) *g = colors[code][1];
+    if (b) *b = colors[code][2];
+  } else if (code >= 30 && code <= 37) {
+    code -= 30; // 30-37 → 0-7
     if (r) *r = colors[code][0];
     if (g) *g = colors[code][1];
     if (b) *b = colors[code][2];
   } else if (code >= 40 && code <= 47) {
-    code -= 40;
-    static const uint8_t colors[8][3] = {
-      {0, 0, 0},     // black
-      {64, 0, 0},    // red
-      {0, 64, 0},    // green
-      {64, 64, 0},   // yellow
-      {0, 0, 64},    // blue
-      {64, 0, 64},   // magenta
-      {0, 64, 64},   // cyan
-      {64, 64, 64}   // white
-    };
+    code -= 40; // 40-47 → 0-7
     if (r) *r = colors[code][0];
     if (g) *g = colors[code][1];
     if (b) *b = colors[code][2];

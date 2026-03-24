@@ -59,14 +59,23 @@ void gfxt_printf(const char *format, ...) {
           for (int i = 0; i < param_count; i++) {
             if (params[i] == 0) {
               txt_set_color(7, 0);
+            } else if (params[i] == 1) {
+              // Bold/bright flag - not implemented separately
             } else if (params[i] >= 30 && params[i] <= 37) {
               uint8_t fg = params[i] - 30;
+              txt_set_color(fg, -1);
+            } else if (params[i] >= 90 && params[i] <= 97) {
+              uint8_t fg = params[i] - 90 + 8; // Bright colors 8-15
               txt_set_color(fg, -1);
             } else if (params[i] >= 40 && params[i] <= 47) {
               uint8_t bg = params[i] - 40;
               txt_set_color(-1, bg);
+            } else if (params[i] >= 100 && params[i] <= 107) {
+              uint8_t bg = params[i] - 100 + 8; // Bright backgrounds 8-15
+              txt_set_color(-1, bg);
             }
           }
+          ansi_reset();
           break;
 
         case 2: // ANSI_CURSOR_UP
@@ -109,13 +118,13 @@ void gfxt_draw(int x, int y, int size) {
       int py = y + row * FONT_H * size;
 
       uint8_t bg_r, bg_g, bg_b;
-      ansi_color_to_rgb(bg + 40, &bg_r, &bg_g, &bg_b);
+      ansi_color_to_rgb(bg, &bg_r, &bg_g, &bg_b);
       gfx_set_color(bg_r, bg_g, bg_b);
       gfx_fill_rect(px, py, FONT_W * size, FONT_H * size);
 
       if (c != ' ') {
         uint8_t fg_r, fg_g, fg_b;
-        ansi_color_to_rgb(fg + 30, &fg_r, &fg_g, &fg_b);
+        ansi_color_to_rgb(fg, &fg_r, &fg_g, &fg_b);
         gfx_set_color(fg_r, fg_g, fg_b);
 
         char buf[2] = { c, 0 };

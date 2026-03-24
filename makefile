@@ -8,7 +8,7 @@ BUILD = build
 
 ifeq ($(CROSS_COMPILE),)
 ifeq ($(shell uname),Darwin)
-XTRA_CFLAGS = -I/opt/homebrew/include -L/opt/homebrew/lib
+XTRA_CFLAGS =
 else
 XTRA_CFLAGS = -I/usr/include -L/usr/lib
 endif

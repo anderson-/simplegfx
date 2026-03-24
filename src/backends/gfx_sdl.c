@@ -12,6 +12,18 @@ double volume = 0.2;
 static int fadein = 256;
 static int fadeout = 256;
 
+#undef main
+int main(int argc, char* argv[]) {
+    if (gfx_setup() != 0) {
+        return 1;
+    }
+    gfx_set_font(&font5x7);
+    gfx_run();
+    gfx_app(0);
+    gfx_cleanup();
+    return 0;
+}
+
 void audio_callback(void * userdata, uint8_t * stream, int len) {
   int16_t * buffer = (int16_t *)stream;
   int genlen = len / sizeof(int16_t);
@@ -254,17 +266,6 @@ void gfx_screenshot(const char * filename) {
 
 void gfx_delay(int ms) {
     SDL_Delay(ms);
-}
-
-int main(int argv, char** args) {
-    if (gfx_setup() != 0) {
-        return 1;
-    }
-    gfx_set_font(&font5x7);
-    gfx_run();
-    gfx_app(0);
-    gfx_cleanup();
-    return 0;
 }
 
 #endif

@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <simplegfx.h>
-#include <simpleterm.h>
+#include "simplegfx.h"
+#include "ext/term/simpleterm.h"
 
 static int terminal_initialized = 0;
 

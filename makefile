@@ -16,9 +16,9 @@ else
 XTRA_CFLAGS = -I${SYSROOT}/usr/include -L${SYSROOT}/usr/lib
 endif
 
-INCLUDES     = -I$(LIBS) -I$(BACKENDS)
+INCLUDES     = -I$(LIBS) -I$(BACKENDS) $(addprefix -I,$(wildcard $(LIBS)/ext/*))
 # Generic sources (excluding backends)
-SOURCES      = $(filter-out $(BACKENDS)/%, $(wildcard $(LIBS)/*.c))
+SOURCES      = $(filter-out $(BACKENDS)/%, $(wildcard $(LIBS)/*.c)) $(wildcard $(LIBS)/ext/*/*.c)
 CFLAGS       = -std=c99 -Wall -g -Os -flto ${INCLUDES} ${XTRA_CFLAGS}
 OUTPUT       = -o ${BUILD}/gfx
 
@@ -28,7 +28,7 @@ all: gfx
 .PHONY: gfx
 gfx:
 	mkdir -p ${BUILD}
-	${CC} ${MAIN_SRC} ${SOURCES} src/backends/gfx_sdl.c ${CFLAGS} -lSDL2 -DGFX_SDL2 -DUSE_SDL2 ${OUTPUT}
+	${CC} ${MAIN_SRC} ${SOURCES} src/backends/gfx_sdl.c ${CFLAGS} -lSDL2 -DGFX_SDL2 ${OUTPUT}
 	chmod +x ${BUILD}/gfx
 
 .PHONY: gfx1.2
@@ -62,7 +62,7 @@ RG35xx:
 .PHONY: screenshot
 screenshot:
 	mkdir -p ${BUILD}
-	${CC} ${MAIN_SRC} ${SOURCES} src/backends/gfx_sdl.c ${CFLAGS} -lSDL2 -DGFX_SDL2 -DUSE_SDL2 -DSCREENSHOT ${OUTPUT}
+	${CC} ${MAIN_SRC} ${SOURCES} src/backends/gfx_sdl.c ${CFLAGS} -lSDL2 -DGFX_SDL2 -DSCREENSHOT ${OUTPUT}
 	chmod +x ${BUILD}/gfx
 	./${BUILD}/gfx
 	convert ${BUILD}/screenshot.bmp ${BUILD}/screenshot.png
@@ -78,13 +78,19 @@ screenshot1.2:
 .PHONY: term
 term:
 	mkdir -p ${BUILD}
-	${CC} examples/term.c ${SOURCES} src/backends/gfx_sdl.c ${CFLAGS} -lSDL2 -DGFX_SDL2 -DUSE_SDL2 ${OUTPUT}
+	${CC} examples/term.c ${SOURCES} src/backends/gfx_sdl.c ${CFLAGS} -lSDL2 -DGFX_SDL2 ${OUTPUT}
 	chmod +x ${BUILD}/gfx
 
 .PHONY: term1.2
 term1.2:
 	mkdir -p ${BUILD}
 	${CC} examples/term.c ${SOURCES} src/backends/gfx_sdl.c ${CFLAGS} -lSDL -DGFX_SDL ${OUTPUT}
+	chmod +x ${BUILD}/gfx
+
+.PHONY: matrix
+matrix:
+	mkdir -p ${BUILD}
+	${CC} examples/matrix.c ${SOURCES} src/backends/gfx_sdl.c ${CFLAGS} -lSDL2 -DGFX_SDL2 ${OUTPUT}
 	chmod +x ${BUILD}/gfx
 
 .PHONY: shell

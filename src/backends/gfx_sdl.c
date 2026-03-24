@@ -86,7 +86,7 @@ void beep(int freq, int ms) {
   SDL_UnlockAudio();
 }
 
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
 SDL_Renderer * renderer = NULL;
 SDL_Window * window = NULL;
 #else
@@ -100,7 +100,7 @@ int gfx_setup(void) {
         return 1;
     }
 
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
     window = SDL_CreateWindow("SDL",
                             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                             WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -142,7 +142,7 @@ int gfx_setup(void) {
 }
 
 void gfx_cleanup(void) {
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
     if (renderer) SDL_DestroyRenderer(renderer);
     if (window) SDL_DestroyWindow(window);
 #else
@@ -154,7 +154,7 @@ void gfx_cleanup(void) {
 }
 
 void gfx_clear(void) {
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 #else
@@ -164,7 +164,7 @@ void gfx_clear(void) {
 }
 
 void gfx_set_color(int r, int g, int b) {
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
     SDL_SetRenderDrawColor(renderer, r, g, b, 255);
 #else
     color = SDL_MapRGB(screen->format, r, g, b);
@@ -172,7 +172,7 @@ void gfx_set_color(int r, int g, int b) {
 }
 
 void gfx_point(int x, int y) {
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
     SDL_RenderDrawPoint(renderer, x, y);
 #else
     if (x >= 0 && x < screen->w && y >= 0 && y < screen->h) {
@@ -184,7 +184,7 @@ void gfx_point(int x, int y) {
 
 void gfx_fill_rect(int x, int y, int w, int h) {
     SDL_Rect rect = { x, y, w, h };
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
     SDL_RenderFillRect(renderer, &rect);
 #else
     SDL_FillRect(screen, &rect, color);
@@ -222,7 +222,7 @@ void gfx_run(void) {
 
         gfx_clear();
         gfx_draw(fps);
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
         SDL_RenderPresent(renderer);
 #else
         SDL_Flip(screen);
@@ -242,7 +242,7 @@ void gfx_run(void) {
 }
 
 void gfx_screenshot(const char * filename) {
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
     SDL_Surface * s = SDL_CreateRGBSurface(0, WINDOW_WIDTH, WINDOW_HEIGHT, 32, 0, 0, 0, 0);
     SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, s->pixels, s->pitch);
     SDL_SaveBMP(s, filename);

@@ -71,7 +71,7 @@ uint16_t* gfx_get_frame_buffer(void);
 #endif
 
 #if defined(GFX_SDL) || defined(GFX_SDL2)
-#ifdef USE_SDL2
+#ifdef GFX_SDL2
   #include <SDL2/SDL.h>
   extern SDL_Renderer * renderer;
   extern SDL_Window * window;

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <simplegfx.h>
+#include "simplegfx.h"
 
 static void draw_matrix() {
   static int columns[80] = {0};

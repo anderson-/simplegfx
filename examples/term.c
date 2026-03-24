@@ -9,16 +9,16 @@ static int terminal_initialized = 0;
 void execute_command(const char *line) {
     // Skip leading whitespace
     while (*line == ' ' || *line == '\t') line++;
-    
+
     // Empty line
     if (*line == '\0') {
         return;
     }
-    
+
     // Parse command and arguments
     char cmd[32];
     const char *args = NULL;
-    
+
     // Extract command
     int i = 0;
     while (i < 31 && line[i] && line[i] != ' ' && line[i] != '\t') {
@@ -26,20 +26,20 @@ void execute_command(const char *line) {
         i++;
     }
     cmd[i] = '\0';
-    
+
     // Skip to arguments
     while (line[i] == ' ' || line[i] == '\t') i++;
     if (line[i]) {
         args = &line[i];
     }
-    
+
     // Execute commands
     if (strcmp(cmd, "echo") == 0) {
         if (args && strcmp(args, "-e") == 0) {
             // Skip -e and find actual text
             while (*args && *args != ' ' && *args != '\t') args++;
             while (*args == ' ' || *args == '\t') args++;
-            
+
             if (args) {
                 // Process escape sequences
                 for (const char *p = args; *p; p++) {
@@ -108,13 +108,13 @@ void execute_command(const char *line) {
             gfxt_printf("\x1b[%dm%d ", i, i);
         }
         gfxt_printf("\x1b[0m\n");
-        
+
         gfxt_printf("Bright: ");
         for (int i = 90; i <= 97; i++) {
             gfxt_printf("\x1b[%dm%d ", i, i);
         }
         gfxt_printf("\x1b[0m\n");
-        
+
         gfxt_printf("\nBackgrounds:\n");
         for (int bg = 40; bg <= 47; bg++) {
             gfxt_printf("\x1b[%dmText ", bg);
@@ -155,7 +155,7 @@ void gfx_app(int init) {
         // Initialize terminal with 50x20 characters
         gfxt_init(50, 20, execute_command, get_prompt);
         terminal_initialized = 1;
-        
+
         // Show welcome message
         gfxt_printf("\x1b[1;36mWelcome to Simple Terminal!\x1b[0m\n");
         gfxt_printf("Type 'help' for available commands.\n");
@@ -165,10 +165,10 @@ void gfx_app(int init) {
 
 void gfx_draw(float fps) {
     if (!terminal_initialized) return;
-    
+
     // Draw terminal at position (10, 10) with scale 2
     gfxt_draw(10, 10, 2);
-    
+
     // Show FPS in corner
     gfx_set_color(100, 100, 100);
     char fps_text[32];
@@ -176,12 +176,22 @@ void gfx_draw(float fps) {
     gfx_text(fps_text, 2, 2, 1);
 }
 
+char last_key = 0;
+
 int gfx_on_key(char key, int down) {
     if (!terminal_initialized) return 0;
-    
+
+    if (!down) {
+        last_key = 0;
+        return 0;
+    }
+    if (key == last_key) {
+        return 0;
+    }
+
     // Pass key to terminal
-    gfxt_on_key(key, down ? 1 : 0);
-    
+    gfxt_on_key(key, 1);
+
     // Exit on MENU+X
     static int menu_pressed = 0;
     if (key == BTN_MENU) {
@@ -190,7 +200,8 @@ int gfx_on_key(char key, int down) {
     if (menu_pressed && key == BTN_X && down) {
         return 1;
     }
-    
+
+    last_key = key;
     return 0;
 }
 

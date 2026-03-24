@@ -77,7 +77,6 @@ int ansi_feed(char c) {
             action = ANSI_CLEAR_LINE;
             break;
         }
-        ansi_reset();
         return action;
       }
   }

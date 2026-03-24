@@ -107,6 +107,18 @@ RG35xx-adb-kill: .check-adb
 RG35xx-adb-logcat: .check-adb
 	${ADB} logcat
 
+.PHONY: term
+term:
+	mkdir -p ${BUILD}
+	${CC} examples/term.c ${CFLAGS} -lSDL2 -DUSE_SDL2 ${OUTPUT}
+	chmod +x ${BUILD}/gfx
+
+.PHONY: term1.2
+term1.2:
+	mkdir -p ${BUILD}
+	${CC} examples/term.c ${CFLAGS} -lSDL ${OUTPUT}
+	chmod +x ${BUILD}/gfx
+
 .PHONY: shell
 shell:
 	nix-shell

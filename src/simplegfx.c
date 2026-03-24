@@ -9,17 +9,6 @@ int printf_size = 0;
 int printf_len = 0;
 int full_kb = 0;
 
-int main(int argv, char** args) {
-    if (gfx_setup() != 0) {
-        return 1;
-    }
-    gfx_set_font(&font5x7);
-    gfx_run();
-    gfx_app(0);
-    gfx_cleanup();
-    return 0;
-}
-
 void gfx_set_font(font_t * font) {
     _font = font;
     if (_font == NULL) {

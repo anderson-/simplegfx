@@ -1,4 +1,4 @@
-#include <simpleaudio.h>
+#include "simpleaudio.h"
 
 static double phase = 0.0;
 static int playing = 0;

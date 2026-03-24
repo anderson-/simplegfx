@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include <simplegfx.h>
+#include "simplegfx.h"
 
 extern double volume;
 

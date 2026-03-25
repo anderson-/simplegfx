@@ -14,48 +14,48 @@ static int fadeout = 256;
 
 #undef main
 int main(int argc, char* argv[]) {
-    if (gfx_setup() != 0) {
-        return 1;
-    }
-    gfx_set_font(&font5x7);
-    gfx_run();
-    gfx_app(0);
-    gfx_cleanup();
-    return 0;
+  if (gfx_setup() != 0) {
+    return 1;
+  }
+  gfx_set_font(&font5x7);
+  gfx_run();
+  gfx_app(0);
+  gfx_cleanup();
+  return 0;
 }
 
 void audio_callback(void * userdata, uint8_t * stream, int len) {
   int16_t * buffer = (int16_t *)stream;
   int genlen = len / sizeof(int16_t);
   for (int i = 0; i < genlen; i++) {
-    buffer[i] = 0;
+  buffer[i] = 0;
   }
   if (!playing) {
-    SDL_PauseAudio(1);
-    return;
+  SDL_PauseAudio(1);
+  return;
   }
   if (samplesc + genlen > samples) {
-    genlen = samples - samplesc;
-    if (genlen < 0) genlen = 0;
+  genlen = samples - samplesc;
+  if (genlen < 0) genlen = 0;
   }
   for (int i = 0; i < genlen; i++) {
-    double vfact = 1.0;
-    if (samplesc < fadein) {
-      vfact = (double)samplesc / (double)fadein;
-    } else if (samples - samplesc < fadeout) {
-      vfact = (double)(samples - samplesc) / (double)fadeout;
-    }
-    double s = sin(2.0 * M_PI * phase) * (volume * vfact);
-    double amp = s * 32767.0;
-    if (amp > 32767.0) amp = 32767.0;
-    if (amp < -32768.0) amp = -32768.0;
-    buffer[i] = (int16_t) amp;
-    phase += frequency * 1.0 / sr;
-    if (phase >= 1.0) phase -= 1.0;
-    samplesc++;
+  double vfact = 1.0;
+  if (samplesc < fadein) {
+    vfact = (double)samplesc / (double)fadein;
+  } else if (samples - samplesc < fadeout) {
+    vfact = (double)(samples - samplesc) / (double)fadeout;
+  }
+  double s = sin(2.0 * M_PI * phase) * (volume * vfact);
+  double amp = s * 32767.0;
+  if (amp > 32767.0) amp = 32767.0;
+  if (amp < -32768.0) amp = -32768.0;
+  buffer[i] = (int16_t) amp;
+  phase += frequency * 1.0 / sr;
+  if (phase >= 1.0) phase -= 1.0;
+  samplesc++;
   }
   if (samples > 0 && samplesc >= samples) {
-    playing = 0;
+  playing = 0;
   }
 }
 
@@ -69,8 +69,8 @@ static int audio_setup(void) {
   spec.callback = audio_callback;
   spec.userdata = NULL;
   if (SDL_OpenAudio(&spec, NULL) < 0) {
-    fprintf(stderr, "Failed to open audio: %s\n", SDL_GetError());
-    return 1;
+  fprintf(stderr, "Failed to open audio: %s\n", SDL_GetError());
+  return 1;
   }
   SDL_PauseAudio(0);
   return 0;
@@ -85,15 +85,15 @@ void beep(int freq, int ms) {
   frequency = (double)freq;
   samples = (int)((ms / 1000.0) * sr);
   if (samples < fadein + fadeout + 10) {
-    samples = fadein + fadeout + 10;
+  samples = fadein + fadeout + 10;
   }
   if (!playing) {
-    phase = 0.0;
-    samplesc = 0;
-    playing = 1;
-    SDL_PauseAudio(0);
+  phase = 0.0;
+  samplesc = 0;
+  playing = 1;
+  SDL_PauseAudio(0);
   } else {
-    samplesc = fadein;
+  samplesc = fadein;
   }
   SDL_UnlockAudio();
 }
@@ -107,165 +107,165 @@ static uint32_t color = 0;
 #endif
 
 int gfx_setup(void) {
-    if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
-        printf("SDL Initialization Error: %s\n", SDL_GetError());
-        return 1;
-    }
+  if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+    printf("SDL Initialization Error: %s\n", SDL_GetError());
+    return 1;
+  }
 
 #ifdef GFX_SDL2
-    window = SDL_CreateWindow("SDL",
-                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                            WINDOW_WIDTH, WINDOW_HEIGHT,
-                            SDL_WINDOW_SHOWN);
-    if (!window) {
-        printf("SDL2 Create Window Error: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
+  window = SDL_CreateWindow("SDL",
+              SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+              WINDOW_WIDTH, WINDOW_HEIGHT,
+              SDL_WINDOW_SHOWN);
+  if (!window) {
+    printf("SDL2 Create Window Error: %s\n", SDL_GetError());
+    SDL_Quit();
+    return 1;
+  }
 #ifdef SCREENSHOT
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+  renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
 #else
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 #endif
-    if (!renderer) {
-        printf("SDL2 Create Renderer Error: %s\n", SDL_GetError());
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
+  if (!renderer) {
+    printf("SDL2 Create Renderer Error: %s\n", SDL_GetError());
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
 #else
-    screen = SDL_SetVideoMode(WINDOW_WIDTH, WINDOW_HEIGHT,
-                            32, SDL_HWSURFACE | SDL_DOUBLEBUF);
-    if (!screen) {
-        printf("SDL1.2 Set Video Mode Error: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
-    SDL_WM_SetCaption("SDL", NULL);
+  screen = SDL_SetVideoMode(WINDOW_WIDTH, WINDOW_HEIGHT,
+              32, SDL_HWSURFACE | SDL_DOUBLEBUF);
+  if (!screen) {
+    printf("SDL1.2 Set Video Mode Error: %s\n", SDL_GetError());
+    SDL_Quit();
+    return 1;
+  }
+  SDL_WM_SetCaption("SDL", NULL);
 #endif
-    SDL_ShowCursor(SDL_DISABLE);
+  SDL_ShowCursor(SDL_DISABLE);
 
-    if (audio_setup() != 0) {
-        printf("Audio setup failed\n");
-        return 1;
-    }
+  if (audio_setup() != 0) {
+    printf("Audio setup failed\n");
+    return 1;
+  }
 
-    return 0;
+  return 0;
 }
 
 void gfx_cleanup(void) {
 #ifdef GFX_SDL2
-    if (renderer) SDL_DestroyRenderer(renderer);
-    if (window) SDL_DestroyWindow(window);
+  if (renderer) SDL_DestroyRenderer(renderer);
+  if (window) SDL_DestroyWindow(window);
 #else
-    if (screen) SDL_FreeSurface(screen);
+  if (screen) SDL_FreeSurface(screen);
 #endif
-    audio_cleanup();
-    gfx_clear_text_buffer();
-    SDL_Quit();
+  audio_cleanup();
+  gfx_clear_text_buffer();
+  SDL_Quit();
 }
 
 void gfx_clear(void) {
 #ifdef GFX_SDL2
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderClear(renderer);
 #else
-    SDL_FillRect(screen, NULL, 0);
+  SDL_FillRect(screen, NULL, 0);
 #endif
-    elm = 0;
+  elm = 0;
 }
 
 void gfx_set_color(int r, int g, int b) {
 #ifdef GFX_SDL2
-    SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+  SDL_SetRenderDrawColor(renderer, r, g, b, 255);
 #else
-    color = SDL_MapRGB(screen->format, r, g, b);
+  color = SDL_MapRGB(screen->format, r, g, b);
 #endif
 }
 
 void gfx_point(int x, int y) {
 #ifdef GFX_SDL2
-    SDL_RenderDrawPoint(renderer, x, y);
+  SDL_RenderDrawPoint(renderer, x, y);
 #else
-    if (x >= 0 && x < screen->w && y >= 0 && y < screen->h) {
-        ((Uint32 *)screen->pixels)[y * screen->w + x] = color;
-    }
+  if (x >= 0 && x < screen->w && y >= 0 && y < screen->h) {
+    ((Uint32 *)screen->pixels)[y * screen->w + x] = color;
+  }
 #endif
-    elm++;
+  elm++;
 }
 
 void gfx_fill_rect(int x, int y, int w, int h) {
-    SDL_Rect rect = { x, y, w, h };
+  SDL_Rect rect = { x, y, w, h };
 #ifdef GFX_SDL2
-    SDL_RenderFillRect(renderer, &rect);
+  SDL_RenderFillRect(renderer, &rect);
 #else
-    SDL_FillRect(screen, &rect, color);
+  SDL_FillRect(screen, &rect, color);
 #endif
-    elm++;
+  elm++;
 }
 
 void gfx_run(void) {
-    uint32_t delay = 1000 / GFX_FPS;
-    uint32_t start;
-    uint32_t busytime = 0;
-    float fps = GFX_FPS;
-    SDL_Event event;
+  uint32_t delay = 1000 / GFX_FPS;
+  uint32_t start;
+  uint32_t busytime = 0;
+  float fps = GFX_FPS;
+  SDL_Event event;
 
-    gfx_app(1);
+  gfx_app(1);
 
-    while (1) {
-        start = SDL_GetTicks();
+  while (1) {
+    start = SDL_GetTicks();
 
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                return;
-            } else if (event.type == SDL_KEYDOWN) {
-                if (gfx_on_key(event.key.keysym.sym, 1) != 0) {
-                    return;
-                } else if (event.key.keysym.sym == BTN_POWER) {
-                    return;
-                }
-            } else if (event.type == SDL_KEYUP) {
-                if (gfx_on_key(event.key.keysym.sym, 0) != 0) {
-                    return;
-                }
-            }
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_QUIT) {
+        return;
+      } else if (event.type == SDL_KEYDOWN) {
+        if (gfx_on_key(event.key.keysym.sym, 1) != 0) {
+          return;
+        } else if (event.key.keysym.sym == BTN_POWER) {
+          return;
         }
+      } else if (event.type == SDL_KEYUP) {
+        if (gfx_on_key(event.key.keysym.sym, 0) != 0) {
+          return;
+        }
+      }
+    }
 
-        gfx_clear();
-        gfx_draw(fps);
+    gfx_clear();
+    gfx_draw(fps);
 #ifdef GFX_SDL2
-        SDL_RenderPresent(renderer);
+    SDL_RenderPresent(renderer);
 #else
-        SDL_Flip(screen);
+    SDL_Flip(screen);
 #endif
 
-        busytime = SDL_GetTicks() - start;
-        if (delay > busytime) {
-            SDL_Delay(delay - busytime);
-        }
-
-        float frame_time = (SDL_GetTicks() - start) / 1000.0f;
-        if (frame_time > 0) {
-            float current_fps = 1.0f / frame_time;
-            fps = (0.1f * current_fps) + (0.9f * fps);
-        }
+    busytime = SDL_GetTicks() - start;
+    if (delay > busytime) {
+      SDL_Delay(delay - busytime);
     }
+
+    float frame_time = (SDL_GetTicks() - start) / 1000.0f;
+    if (frame_time > 0) {
+      float current_fps = 1.0f / frame_time;
+      fps = (0.1f * current_fps) + (0.9f * fps);
+    }
+  }
 }
 
 void gfx_screenshot(const char * filename) {
 #ifdef GFX_SDL2
-    SDL_Surface * s = SDL_CreateRGBSurface(0, WINDOW_WIDTH, WINDOW_HEIGHT, 32, 0, 0, 0, 0);
-    SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, s->pixels, s->pitch);
-    SDL_SaveBMP(s, filename);
-    SDL_FreeSurface(s);
+  SDL_Surface * s = SDL_CreateRGBSurface(0, WINDOW_WIDTH, WINDOW_HEIGHT, 32, 0, 0, 0, 0);
+  SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, s->pixels, s->pitch);
+  SDL_SaveBMP(s, filename);
+  SDL_FreeSurface(s);
 #else
-    SDL_SaveBMP(screen, filename);
+  SDL_SaveBMP(screen, filename);
 #endif
 }
 
 void gfx_delay(int ms) {
-    SDL_Delay(ms);
+  SDL_Delay(ms);
 }
 
 #endif

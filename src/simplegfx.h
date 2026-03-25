@@ -65,6 +65,8 @@ int gfx_fast_rand(void);
 void gfx_screenshot(const char * filename);
 void gfx_delay(int ms);
 
+extern unsigned int _seed;
+
 // Backend specific
 #if defined(GFX_BUFFER) || !(defined(GFX_SDL) || defined(GFX_SDL2))
 uint16_t* gfx_get_frame_buffer(void);

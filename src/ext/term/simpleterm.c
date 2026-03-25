@@ -33,69 +33,82 @@ void gfxt_init(int w_chars, int h_chars, void (*eval_fn)(const char*), const cha
   initialized = 1;
 }
 
-void gfxt_printf(const char *format, ...) {
-  if (!initialized) return;
+void gftx_putchar(char c) {  
+  int action = ansi_feed(c);
 
-  va_list args;
-  va_start(args, format);
+  if (action == -1) {
+    txt_putc(c);
+  } else if (action > 0) {
+    int *params = ansi_get_params();
+    int param_count = ansi_get_param_count();
 
-  char temp[256];
-  vsnprintf(temp, sizeof(temp), format, args);
-
-  for (int i = 0; temp[i]; i++) {
-    int action = ansi_feed(temp[i]);
-
-    if (action == -1) {
-      txt_putc(temp[i]);
-    } else if (action > 0) {
-      int *params = ansi_get_params();
-      int param_count = ansi_get_param_count();
-
-      switch (action) {
-        case 1: // ANSI_COLOR
-          for (int i = 0; i < param_count; i++) {
-            if (params[i] == 0) {
-              txt_reset_colors();
-            } else if (params[i] == 1) {
-              // Bold/bright flag - not implemented separately
-            } else if (params[i] >= 30 && params[i] <= 37) {
-              uint8_t fg = params[i] - 30;
-              txt_set_color(fg, -1);
-            } else if (params[i] >= 90 && params[i] <= 97) {
-              uint8_t fg = params[i] - 90 + 8; // Bright colors 8-15
-              txt_set_color(fg, -1);
-            } else if (params[i] >= 40 && params[i] <= 47) {
-              uint8_t bg = params[i] - 40;
-              txt_set_color(-1, bg);
-            } else if (params[i] >= 100 && params[i] <= 107) {
-              uint8_t bg = params[i] - 100 + 8; // Bright backgrounds 8-15
-              txt_set_color(-1, bg);
-            }
+    switch (action) {
+      case 1: // ANSI_COLOR
+        for (int i = 0; i < param_count; i++) {
+          if (params[i] == 0) {
+            txt_reset_colors();
+          } else if (params[i] == 1) {
+            // Bold/bright flag - not implemented separately
+          } else if (params[i] >= 30 && params[i] <= 37) {
+            uint8_t fg = params[i] - 30;
+            txt_set_color(fg, -1);
+          } else if (params[i] >= 90 && params[i] <= 97) {
+            uint8_t fg = params[i] - 90 + 8; // Bright colors 8-15
+            txt_set_color(fg, -1);
+          } else if (params[i] >= 40 && params[i] <= 47) {
+            uint8_t bg = params[i] - 40;
+            txt_set_color(-1, bg);
+          } else if (params[i] >= 100 && params[i] <= 107) {
+            uint8_t bg = params[i] - 100 + 8; // Bright backgrounds 8-15
+            txt_set_color(-1, bg);
           }
-          ansi_reset();
-          break;
+        }
+        ansi_reset();
+        break;
 
-        case 2: // ANSI_CURSOR_UP
-          txt_get_cursor(NULL, &term_h_chars);
-          txt_set_cursor(-1, term_h_chars - (params[0] ? params[0] : 1));
-          break;
+      case 2: // ANSI_CURSOR_UP
+        txt_get_cursor(NULL, &term_h_chars);
+        txt_set_cursor(-1, term_h_chars - (params[0] ? params[0] : 1));
+        break;
 
-        case 6: // ANSI_CURSOR_POS
-          txt_set_cursor(params[1] - 1, params[0] - 1);
-          break;
+      case 6: // ANSI_CURSOR_POS
+        txt_set_cursor(params[1] - 1, params[0] - 1);
+        break;
 
-        case 7: // ANSI_CLEAR_SCREEN
-          txt_clear();
-          break;
-      }
+      case 7: // ANSI_CLEAR_SCREEN
+        txt_clear();
+        break;
     }
   }
+}
 
+void gfxt_print(const char *str) {
+  for (int i = 0; str[i]; i++) {
+    gftx_putchar(str[i]);
+  }
+}
+
+void gfxt_println(const char *str) {
+  gfxt_printf(str);
+  gftx_putchar('\n'); 
+}
+
+void gfxt_printf(const char *format, ...) {
+  static char temp[256];
+  if (!initialized) return;
+  va_list args;
+  va_start(args, format);
+  vsnprintf(temp, sizeof(temp), format, args);
+  gfxt_print(temp);
   va_end(args);
 }
 
-void gfxt_clear(){
+void gfxt_clear() {
   gfxt_printf("\x1b[l");
+}
+
+char gfxt_getch() {
+  
 }
 
 int m = 0;

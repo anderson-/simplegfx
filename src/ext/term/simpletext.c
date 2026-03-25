@@ -1,13 +1,11 @@
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include "simpletext.h"
 
-#define MAX_TERM_W 80
-#define MAX_TERM_H 24
-
-static char text_buf[MAX_TERM_W * MAX_TERM_H];
-static uint8_t fg_buf[MAX_TERM_W * MAX_TERM_H];
-static uint8_t bg_buf[MAX_TERM_W * MAX_TERM_H];
+static char *text_buf = NULL;
+static uint8_t *fg_buf = NULL;
+static uint8_t *bg_buf = NULL;
 
 static int term_w = 40;
 static int term_h = 10;
@@ -19,10 +17,21 @@ static uint8_t current_fg = 7;
 static uint8_t current_bg = 0;
 
 void txt_set_size(int w, int h) {
-  if (w <= MAX_TERM_W && h <= MAX_TERM_H) {
-    term_w = w;
-    term_h = h;
-    txt_clear();
+  if (w > 0 && h > 0) {
+    int new_size = w * h;
+    
+    char *new_text_buf = realloc(text_buf, new_size * sizeof(char));
+    uint8_t *new_fg_buf = realloc(fg_buf, new_size * sizeof(uint8_t));
+    uint8_t *new_bg_buf = realloc(bg_buf, new_size * sizeof(uint8_t));
+    
+    if (new_text_buf && new_fg_buf && new_bg_buf) {
+      text_buf = new_text_buf;
+      fg_buf = new_fg_buf;
+      bg_buf = new_bg_buf;
+      term_w = w;
+      term_h = h;
+      txt_clear();
+    }
   }
 }
 

@@ -150,10 +150,20 @@ const char* get_prompt(void) {
   return "\x1b[32msimplegfx\x1b[0m:\x1b[34m~\x1b[0m$ ";
 }
 
+int x = 0;
+int y = 0;
+int fsize = 3;
+
 void gfx_app(int init) {
   if (init) {
-    // Initialize terminal with 50x20 characters
-    gfxt_init(50, 20, execute_command, get_prompt);
+    font_t * f = gfx_get_font();
+    int fw = (f->width + 1) * fsize;
+    int fh = (f->height + 1) * fsize;
+    int w = WINDOW_WIDTH / fw;
+    int h = WINDOW_HEIGHT / fh;
+    x = (WINDOW_WIDTH - w * fw) / 2;
+    y = (WINDOW_HEIGHT - h * fh) / 2;
+    gfxt_init(w, h, execute_command, get_prompt);
     terminal_initialized = 1;
 
     // Show welcome message
@@ -166,9 +176,7 @@ void gfx_app(int init) {
 
 void gfx_draw(float fps) {
   if (!terminal_initialized) return;
-
-  // Draw terminal at position (10, 10) with scale 2
-  gfxt_draw(10, 10, 1);
+  gfxt_draw(x, y, fsize);
 
   // Show FPS in corner
   gfx_set_color(100, 100, 100);

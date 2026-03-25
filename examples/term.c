@@ -187,9 +187,10 @@ void gfx_draw(float fps) {
 
 char last_key = 0;
 
+#define KEY_CTRL -32
+
 int gfx_on_key(char key, int down) {
   if (!terminal_initialized) return 0;
-
 
   if (!down) {
     last_key = 0;
@@ -198,34 +199,37 @@ int gfx_on_key(char key, int down) {
 
   switch (key) {
     case BTN_UP:
-      gfxt_on_key('\x1b', 1);
-      gfxt_on_key('[', 1);
-      gfxt_on_key('A', 1);
+      gfxt_on_key('\x1b');
+      gfxt_on_key('[');
+      gfxt_on_key('A');
       return 0;
     case BTN_DOWN:
-      gfxt_on_key('\x1b', 1);
-      gfxt_on_key('[', 1);
-      gfxt_on_key('B', 1);
+      gfxt_on_key('\x1b');
+      gfxt_on_key('[');
+      gfxt_on_key('B');
       return 0;
     case BTN_LEFT:
-      gfxt_on_key('\x1b', 1);
-      gfxt_on_key('[', 1);
-      gfxt_on_key('D', 1);
+      gfxt_on_key('\x1b');
+      gfxt_on_key('[');
+      gfxt_on_key('D');
       return 0;
     case BTN_RIGHT:
-      gfxt_on_key('\x1b', 1);
-      gfxt_on_key('[', 1);
-      gfxt_on_key('C', 1);
+      gfxt_on_key('\x1b');
+      gfxt_on_key('[');
+      gfxt_on_key('C');
+      return 0;
+    case KEY_CTRL:
+      gfxt_on_key('\x1b');
+      gfxt_on_key('[');
       return 0;
   }
-
 
   if (key == last_key) {
     return 0;
   }
 
   // Pass key to terminal
-  gfxt_on_key(key, 1);
+  gfxt_on_key(key);
 
   // Exit on MENU+X
   static int menu_pressed = 0;

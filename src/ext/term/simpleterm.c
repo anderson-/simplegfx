@@ -94,6 +94,10 @@ void gfxt_printf(const char *format, ...) {
   va_end(args);
 }
 
+void gfxt_clear(){
+  gfxt_printf("\x1b[l");
+}
+
 int m = 0;
 
 void gfxt_draw(int x, int y, int size) {
@@ -160,19 +164,36 @@ void gfxt_draw(int x, int y, int size) {
   txt_set_cursor(saved_cursor_x, saved_cursor_y);
 }
 
-void gfxt_on_key(uint8_t key, uint8_t modifiers) {
+static int escape_state = 0;
+
+void gfxt_on_key(uint8_t key) {
   if (!initialized) return;
 
-  if (modifiers & 2) { // Ctrl
-    if (key == 'l' || key == 'L') {
-      txt_clear();
+  if (escape_state == 1) {
+    if (key == '[') {
+      escape_state = 2;
       return;
+    } else {
+      escape_state = 0;
     }
-    if (key == 'c' || key == 'C') {
-      repl_clear();
-      return;
+  } else if (escape_state == 2) {
+    escape_state = 0;
+    switch (key) {
+      case 'l':
+      case 'L':
+        txt_clear();
+        return;
+      case 'c':
+      case 'C':
+        repl_clear();
+        return;
     }
   }
 
-  repl_handle_key(key, modifiers);
+  if (key == '\x1b') {
+    escape_state = 1;
+    return;
+  }
+
+  repl_handle_key(key);
 }

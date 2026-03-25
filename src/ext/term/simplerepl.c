@@ -41,7 +41,7 @@ void repl_add_history(const char *line) {
   if (hist_count < HIST_COUNT) hist_count++;
 }
 
-void repl_handle_key(uint8_t key, uint8_t modifiers) {
+void repl_handle_key(uint8_t key) {
   if (escape_state == 1) {
     if (key == '[') {
       escape_state = 2;

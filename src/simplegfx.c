@@ -7,6 +7,7 @@ char * printf_buf = NULL;
 int printf_size = 0;
 int printf_len = 0;
 int full_kb = 0;
+void (* gfx_yeld)() = NULL;
 
 void gfx_set_font(font_t * font) {
   _font = font;

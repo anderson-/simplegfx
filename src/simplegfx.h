@@ -43,6 +43,8 @@ extern int printf_size;
 extern int printf_len;
 extern int full_kb;
 
+extern void (* gfx_yeld)();
+
 // API functions
 int gfx_setup(void);
 void gfx_cleanup(void);

@@ -204,52 +204,57 @@ void gfx_fill_rect(int x, int y, int w, int h) {
   elm++;
 }
 
+static uint32_t delay = 1000 / GFX_FPS;
+static uint32_t start;
+static uint32_t busytime = 0;
+static float fps = GFX_FPS;
+static SDL_Event event;
+
+static void loop() {
+  start = SDL_GetTicks();
+  while (SDL_PollEvent(&event)) {
+    if (event.type == SDL_QUIT) {
+      exit(0);
+      return;
+    } else if (event.type == SDL_KEYDOWN) {
+      if (gfx_on_key(event.key.keysym.sym, 1) != 0) {
+        return;
+      } else if (event.key.keysym.sym == BTN_POWER) {
+        return;
+      }
+    } else if (event.type == SDL_KEYUP) {
+      if (gfx_on_key(event.key.keysym.sym, 0) != 0) {
+        return;
+      }
+    }
+  }
+  gfx_clear();
+  gfx_draw(fps);
+#ifdef GFX_SDL2
+  SDL_RenderPresent(renderer);
+#else
+  SDL_Flip(screen);
+#endif
+
+  busytime = SDL_GetTicks() - start;
+  if (delay > busytime) {
+    SDL_Delay(delay - busytime);
+  }
+
+  float frame_time = (SDL_GetTicks() - start) / 1000.0f;
+  if (frame_time > 0) {
+    float current_fps = 1.0f / frame_time;
+    fps = (0.1f * current_fps) + (0.9f * fps);
+  }
+}
+
 void gfx_run(void) {
-  uint32_t delay = 1000 / GFX_FPS;
-  uint32_t start;
-  uint32_t busytime = 0;
-  float fps = GFX_FPS;
-  SDL_Event event;
+  gfx_yeld = loop;
 
   gfx_app(1);
 
   while (1) {
-    start = SDL_GetTicks();
-
-    while (SDL_PollEvent(&event)) {
-      if (event.type == SDL_QUIT) {
-        return;
-      } else if (event.type == SDL_KEYDOWN) {
-        if (gfx_on_key(event.key.keysym.sym, 1) != 0) {
-          return;
-        } else if (event.key.keysym.sym == BTN_POWER) {
-          return;
-        }
-      } else if (event.type == SDL_KEYUP) {
-        if (gfx_on_key(event.key.keysym.sym, 0) != 0) {
-          return;
-        }
-      }
-    }
-
-    gfx_clear();
-    gfx_draw(fps);
-#ifdef GFX_SDL2
-    SDL_RenderPresent(renderer);
-#else
-    SDL_Flip(screen);
-#endif
-
-    busytime = SDL_GetTicks() - start;
-    if (delay > busytime) {
-      SDL_Delay(delay - busytime);
-    }
-
-    float frame_time = (SDL_GetTicks() - start) / 1000.0f;
-    if (frame_time > 0) {
-      float current_fps = 1.0f / frame_time;
-      fps = (0.1f * current_fps) + (0.9f * fps);
-    }
+    loop();
   }
 }
 

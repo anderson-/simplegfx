@@ -101,6 +101,22 @@ void execute_command(const char *line) {
     // Clear is handled by Ctrl+L, but we can mention it
     gfxt_printf("Use Ctrl+L to clear the screen\n");
   }
+  else if (strcmp(cmd, "passwd") == 0) {
+    gfxt_print("\r\x1b[K");
+    char password[64] = {0};
+    int i = 0;
+    while (1) {
+     char c = gfxt_getchar();
+     if (c == '\n') {
+        gfxt_putchar('\n');
+        break;
+     } 
+     gfxt_putchar('*');
+     password[i++] = c;
+    }
+    password[i] = '\0';
+    gfxt_printf("pass: %s[%d]\n", password, strlen(password));
+  }
   else if (strcmp(cmd, "colors") == 0) {
     gfxt_printf("\x1b[1mColor Test:\x1b[0m\n");
     gfxt_printf("Normal: ");
@@ -139,6 +155,7 @@ void execute_command(const char *line) {
   }
   else if (strcmp(cmd, "exit") == 0 || strcmp(cmd, "quit") == 0) {
     gfxt_printf("Use MENU+X to exit the application\n");
+    exit(0);
   }
   else {
     gfxt_printf("\x1b[31mCommand not found:\x1b[0m %s\n", cmd);
@@ -188,6 +205,7 @@ void gfx_draw(float fps) {
 char last_key = 0;
 
 #define KEY_CTRL -32
+#define KEY_ENTER 13
 
 int gfx_on_key(char key, int down) {
   if (!terminal_initialized) return 0;
@@ -221,6 +239,9 @@ int gfx_on_key(char key, int down) {
     case KEY_CTRL:
       gfxt_on_key('\x1b');
       gfxt_on_key('[');
+      return 0;
+    case KEY_ENTER:
+      gfxt_on_key('\n');
       return 0;
   }
 

@@ -33,7 +33,7 @@ void gfxt_init(int w_chars, int h_chars, void (*eval_fn)(const char*), const cha
   initialized = 1;
 }
 
-void gftx_putchar(char c) {  
+void gfxt_putchar(char c) {  
   int action = ansi_feed(c);
 
   if (action == -1) {
@@ -84,13 +84,13 @@ void gftx_putchar(char c) {
 
 void gfxt_print(const char *str) {
   for (int i = 0; str[i]; i++) {
-    gftx_putchar(str[i]);
+    gfxt_putchar(str[i]);
   }
 }
 
 void gfxt_println(const char *str) {
   gfxt_printf(str);
-  gftx_putchar('\n'); 
+  gfxt_putchar('\n'); 
 }
 
 void gfxt_printf(const char *format, ...) {
@@ -107,8 +107,38 @@ void gfxt_clear() {
   gfxt_printf("\x1b[l");
 }
 
-char gfxt_getch() {
-  
+volatile char gfxt_stdin = 1;
+
+char gfxt_getchar() {
+  gfxt_stdin = 0;
+  while (gfx_yeld && !gfxt_stdin) {
+    gfx_yeld();
+  }
+  return gfxt_stdin;
+}
+
+char* gfxt_gets(char *str, int count) {
+  if (!str) return NULL;
+  int i = 0;
+  char c;
+  while ((c = gfxt_getchar()) != '\n' && c != '\r' && i < count) {
+    str[i++] = c;
+    gfxt_putchar(c);
+  }
+  str[i] = '\0';
+  gfxt_putchar('\n');
+  return str;
+}
+
+int gfxt_scanf(const char *format, ...) {
+  static char buffer[256];
+  va_list args;
+  int count;
+  gfxt_gets(buffer, 255);
+  va_start(args, format);
+  count = vsscanf(buffer, format, args);
+  va_end(args);
+  return count;
 }
 
 int m = 0;
@@ -181,6 +211,11 @@ static int escape_state = 0;
 
 void gfxt_on_key(uint8_t key) {
   if (!initialized) return;
+
+  if (!gfxt_stdin) {
+    gfxt_stdin = key;
+    return;
+  }
 
   if (escape_state == 1) {
     if (key == '[') {

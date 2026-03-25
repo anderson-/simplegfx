@@ -10,24 +10,20 @@
 static int term_w_chars = 40;
 static int term_h_chars = 12;
 static int initialized = 0;
+static const char* (*prompt_fn)() = NULL;
+static void (*eval_fn)(const char*);
+static char input[256] = {0};
+static int input_size = 0;
 
-static void default_eval(const char *line) {
-  gfxt_printf("Command: %s\n", line);
-}
-
-static const char* default_prompt(void) {
-  return "user@cardputer$ ";
-}
-
-void gfxt_init(int w_chars, int h_chars, void (*eval_fn)(const char*), const char* (*prompt_fn)(void)) {
+void gfxt_init(int w_chars, int h_chars, void (*_eval_fn)(const char*), const char* (*_prompt_fn)(void)) {
   term_w_chars = w_chars;
   term_h_chars = h_chars;
+  eval_fn = _eval_fn;
+  prompt_fn = _prompt_fn;
 
   txt_set_size(w_chars, h_chars);
   txt_set_colors(7, 0);
   txt_clear();
-
-  repl_init(eval_fn ? eval_fn : default_eval, prompt_fn ? prompt_fn : default_prompt);
 
   ansi_reset();
   initialized = 1;
@@ -158,6 +154,8 @@ void gfxt_draw(int x, int y, int size) {
   int fheight = f.height;
   int fwidth = f.width;
 
+  int cursor_x, cursor_y;
+  txt_get_cursor(&cursor_x, &cursor_y);
   for (int row = 0; row < h; row++) {
     for (int col = 0; col < w; col++) {
       int pos = row * w + col;
@@ -181,30 +179,15 @@ void gfxt_draw(int x, int y, int size) {
         char buf[2] = { c, 0 };
         gfx_text(buf, px, py, size);
       }
+
+      if (cursor_y == row && cursor_x == col && ++m % 20 < 7) {
+        uint8_t bg_r, bg_g, bg_b;
+        ansi_color_to_rgb(7, &bg_r, &bg_g, &bg_b);
+        gfx_set_color(bg_r, bg_g, bg_b);
+        gfx_fill_rect(px, py, fwidth * size + size, fheight * size + size);
+      }
     }
   }
-
-  int saved_cursor_x, saved_cursor_y;
-  txt_get_cursor(&saved_cursor_x, &saved_cursor_y);
-
-  txt_set_cursor(0, h - 1);
-  for (int i = 0; i < w-1; i++) {
-    gfxt_printf(" ");
-  }
-
-  txt_set_cursor(0, h - 1);
-  gfxt_printf("%s", repl_get_prompt());
-
-  int cursor = 0;
-  txt_get_cursor(&cursor, NULL);
-  cursor += repl_get_cursor();
-
-  gfxt_printf("%s", repl_get_input());
-
-  txt_set_cursor(cursor, h - 1);
-  gfxt_printf("\x1b[%dm%c\x1b[0m", (++m % 20 < 7) ? 40 : 47, text_buf[cursor + (h - 1) * w]);
-
-  txt_set_cursor(saved_cursor_x, saved_cursor_y);
 }
 
 static int escape_state = 0;
@@ -231,9 +214,25 @@ void gfxt_on_key(uint8_t key) {
       case 'L':
         txt_clear();
         return;
-      case 'c':
-      case 'C':
-        repl_clear();
+      case 'A': // Up
+        
+        return;
+      case 'B': // Down
+        
+        return;
+      case 'C': // Right
+        {
+          int cursor_x, cursor_y;
+          txt_get_cursor(&cursor_x, &cursor_y);
+          txt_set_cursor(cursor_x + 1, cursor_y);
+        }
+        return;
+      case 'D': // Left
+        {
+          int cursor_x, cursor_y;
+          txt_get_cursor(&cursor_x, &cursor_y);
+          txt_set_cursor(cursor_x - 1, cursor_y);
+        }
         return;
     }
   }
@@ -243,5 +242,13 @@ void gfxt_on_key(uint8_t key) {
     return;
   }
 
-  repl_handle_key(key);
+  gfxt_putchar(key);
+  input[input_size++] = key;
+  if (key == '\n') {
+    input[input_size - 1] = 0;
+    eval_fn(input);
+    input[0] = 0;
+    input_size = 0;
+    gfxt_printf("%s", prompt_fn());
+  }
 }

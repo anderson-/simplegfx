@@ -38,6 +38,11 @@ int cmd_echo(const char *args) {
   return 0;
 }
 
+int cmd_error(const char *args) {
+  if (*args) gfxt_printf(TERM_RED "%s" TERM_RESET "\n", args);
+  return 1;
+}
+
 int cmd_ansi(const char *args) {
   int row, col, n;
   for (row = 0; row < 11; row++) {
@@ -139,6 +144,7 @@ int cmd_help(const char *args) {
 void gfxt_std_cmd_reg() {
   gfxt_register_cmd("clear", "clear screen", cmd_clear);
   gfxt_register_cmd("echo", "print text", cmd_echo);
+  gfxt_register_cmd("error", "print error message", cmd_error);
   gfxt_register_cmd("ansi", "ANSI color codes", cmd_ansi);
   gfxt_register_cmd("palette", "print color palette", cmd_palette);
   gfxt_register_cmd("ascii", "print ASCII table", cmd_ascii);

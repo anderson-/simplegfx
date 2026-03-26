@@ -11,7 +11,7 @@ const char* get_prompt(void) {
 
 int x = 0;
 int y = 0;
-int fsize = 3;
+int fsize = 2;
 
 void gfx_app(int init) {
   font_t * f = gfx_get_font();

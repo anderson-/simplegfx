@@ -56,7 +56,7 @@ void gfxt_run_cmd(const char* line) {
     if (strcmp(gfxt_cmd_registry[i].name, cmd) == 0) {
       int code = gfxt_cmd_registry[i].func(args);
       if (code != 0) {
-        gfxt_printf(TERM_RED "> %d\n" TERM_RESET, code);
+        gfxt_printf(TERM_BRED "\x13%d\n" TERM_RESET, code);
       }
       return;
     }

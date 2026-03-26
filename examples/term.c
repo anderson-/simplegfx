@@ -110,7 +110,7 @@ void execute_command(const char *line) {
      if (c == '\n') {
         gfxt_putchar('\n');
         break;
-     } 
+     }
      gfxt_putchar('*');
      password[i++] = c;
     }
@@ -183,11 +183,6 @@ void gfx_app(int init) {
     gfxt_init(w, h, execute_command, get_prompt);
     terminal_initialized = 1;
 
-    // Show welcome message
-    gfxt_printf("\x1b[1;36mWelcome\x1b[0m to \x1b[31mSimple\x1b[1;32m Terminal!\x1b[0m\n");
-    gfxt_printf("Testing colors: \x1b[91mBright Red\x1b[0m \x1b[92mBright Green\x1b[0m \x1b[94mBright Blue\x1b[0m\n");
-    gfxt_printf("Background: \x1b[44mBlue BG\x1b[0m \x1b[101mBright Red BG\x1b[0m\n");
-    gfxt_printf("\nType 'help' for commands.\n");
   }
 }
 

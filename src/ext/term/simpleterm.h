@@ -9,9 +9,9 @@ extern volatile char gfxt_stdin;
 
 void gfxt_init(int w_chars, int h_chars, void (*eval_fn)(const char*), const char* (*prompt_fn)(void));
 void gfxt_putchar(char c);
-void gfxt_print(const char *str);
-void gfxt_println(const char *str);
-void gfxt_printf(const char *format, ...);
+int gfxt_print(const char *str);
+int gfxt_println(const char *str);
+int gfxt_printf(const char *format, ...);
 void gfxt_clear();
 char gfxt_getchar();
 char* gfxt_gets(char *str, int count);

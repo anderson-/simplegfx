@@ -1,0 +1,149 @@
+#pragma once
+
+#include "simpleterm.h"
+#include <time.h>
+#include <stdio.h>
+#include <string.h>
+
+int cmd_clear(const char *args) {
+  gfxt_clear();
+  return 0;
+}
+
+int cmd_echo(const char *args) {
+  if (!args) {
+    gfxt_println("");
+    return 0;
+  }
+
+  char buffer[128];
+  char *dst = buffer;
+  const char *src = args;
+
+  while (*src && dst < buffer + sizeof(buffer) - 1) {
+    if (*src == '\\' && *(src+1) == 'x') {
+      int val;
+      if (sscanf(src + 2, "%2x", &val) == 1) {
+        *dst++ = (char)val;
+        src += 4;
+      } else {
+        *dst++ = *src++;
+      }
+    } else {
+      *dst++ = *src++;
+    }
+  }
+  *dst = '\0';
+  gfxt_println(buffer);
+  return 0;
+}
+
+int cmd_ansi(const char *args) {
+  int row, col, n;
+  for (row = 0; row < 11; row++) {
+    for (col = 0; col < 10; col++) {
+      n = 10 * row + col;
+      if (n > 109) break;
+      gfxt_printf("\033[%dm %3d\033[m", n, n);
+    }
+    gfxt_println("");
+  }
+  return 0;
+}
+
+int cmd_palette(const char *args) {
+  gfxt_printf("\x1b[1mColor Test:\x1b[0m\n");
+  gfxt_printf("Normal: ");
+  for (int i = 30; i <= 37; i++) {
+    gfxt_printf("\x1b[%dm%d ", i, i);
+  }
+  gfxt_printf("\x1b[0m\n");
+
+  gfxt_printf("Bright: ");
+  for (int i = 90; i <= 97; i++) {
+    gfxt_printf("\x1b[%dm%d ", i, i);
+  }
+  gfxt_printf("\x1b[0m\n");
+
+  gfxt_printf("\nBackgrounds:\n");
+  for (int bg = 40; bg <= 47; bg++) {
+    gfxt_printf("\x1b[%dmText ", bg);
+    for (int fg = 30; fg <= 37; fg++) {
+      gfxt_printf("\x1b[%d;%dmA ", fg, bg);
+    }
+    gfxt_printf("\x1b[0m\n");
+  }
+  return 0;
+}
+
+int cmd_ascii(const char *args) {
+  (void)args;
+  for (int i = 0; i < 256; i++) {
+    gfxt_printf(TERM_BBLACK "%02x " TERM_RESET "%c ", i, i);
+    if ((i + 1) % 4 == 0) gfxt_println("");
+  }
+  return 0;
+}
+
+int cmd_theme(const char *args) {
+  int id = -1;
+  sscanf(args, "%d", &id);
+  gfxt_set_theme(id);
+  if (id >= 0) {
+    gfxt_printf(TERM_GREEN "theme set to %d" TERM_RESET "\n", id);
+  } else {
+    gfxt_printf(TERM_GREEN "theme switched" TERM_RESET "\n");
+  }
+  return 0;
+}
+
+int cmd_date(const char *args) {
+  time_t now = time(NULL);
+  if (now > 1000000000) {
+    char dt[32];
+    struct tm ti;
+    localtime_r(&now, &ti);
+    strftime(dt, sizeof(dt), "%Y-%m-%d %H:%M:%S", &ti);
+    gfxt_println(dt);
+  } else {
+    gfxt_println(TERM_RED "time not synced" TERM_RESET);
+    return 1;
+  }
+  return 0;
+}
+
+int cmd_boxdrawing(const char *args) {
+  gfxt_println("\xda\xc4\xc2\xbf  \xc9\xcd\xcb\xbb  \xd6\xc4\xd2\xb7  \xd5\xcd\xd1\xb8");
+  gfxt_println("\xb3 \xb3\xb3  \xba \xba\xba  \xba \xba\xba  \xb3 \xb3\xb3");
+  gfxt_println("\xc3\xc4\xc5\xb4  \xcc\xcd\xce\xb9  \xc7\xc4\xd7\xb6  \xc6\xcd\xd8\xb5");
+  gfxt_println("\xc0\xc4\xc1\xd9  \xc8\xcd\xca\xbc  \xd3\xc4\xd0\xbd  \xd4\xcd\xcf\xbe");
+  gfxt_println("\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xbf");
+  gfxt_println("\xb3  \xc9\xcd\xcd\xcd\xbb Some Text  \xb3\xb1");
+  gfxt_println("\xb3  \xc8\xcd\xcb\xcd\xbc in the box \xb3\xb1");
+  gfxt_println("\xc6\xcd\xd1\xcd\xcd\xca\xcd\xcd\xd1\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xb5\xb1");
+  gfxt_println("\xb3 \xc3\xc4\xc4\xc2\xc4\xc4\xb4           \xb3\xb1");
+  gfxt_println("\xb3 \xc0\xc4\xc4\xc1\xc4\xc4\xd9           \xb3\xb1");
+  gfxt_println("\xc0\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xd9\xb1");
+  gfxt_println(" \xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1");
+  return 1;
+}
+
+int cmd_help(const char *args) {
+  gfxt_println("Available commands:");
+  for (int i = 0; i < gfxt_cmd_registry_len; i++) {
+    gfxt_printf("  %s - %s\n", gfxt_cmd_registry[i].name, gfxt_cmd_registry[i].help);
+  }
+  return 0;
+}
+
+void gfxt_std_cmd_reg() {
+  gfxt_register_cmd("clear", "clear screen", cmd_clear);
+  gfxt_register_cmd("echo", "print text", cmd_echo);
+  gfxt_register_cmd("ansi", "ANSI color codes", cmd_ansi);
+  gfxt_register_cmd("palette", "print color palette", cmd_palette);
+  gfxt_register_cmd("ascii", "print ASCII table", cmd_ascii);
+  gfxt_register_cmd("theme", "[id] set color theme", cmd_theme);
+  gfxt_register_cmd("date", "current date/time", cmd_date);
+  gfxt_register_cmd("boxdrawing", "print box drawing characters", cmd_boxdrawing);
+  gfxt_register_cmd("help", "list available commands", cmd_help);
+}

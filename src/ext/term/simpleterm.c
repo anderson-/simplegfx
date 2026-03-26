@@ -4,23 +4,13 @@
 #include <string.h>
 #include "simpleterm.h"
 #include "simplegfx.h"
-#include "ansiutils.h"
-
-#define NON_ANSI_CHAR -1
-#define ANSI_NONE 0
-#define ANSI_COLOR 1
-#define ANSI_CURSOR_UP 2
-#define ANSI_CURSOR_DOWN 3
-#define ANSI_CURSOR_RIGHT 4
-#define ANSI_CURSOR_LEFT 5
-#define ANSI_CURSOR_POS 6
-#define ANSI_CLEAR_SCREEN 7
-#define ANSI_CLEAR_LINE 8
-#define ANSI_ERASE_LINE 9
 
 static const char* (*prompt_fn)() = NULL;
 static void (*eval_fn)(const char*) = NULL;
 static void (*scroll_fn)(const char*) = NULL;
+
+cmd_entry_t gfxt_cmd_registry[MAX_COMMANDS];
+int gfxt_cmd_registry_len = 0;
 
 static int width = 40;
 static int height = 12;
@@ -50,21 +40,29 @@ int cursor_color = 7;
 int frame = 0;
 int scroll = 0;
 
-void debug_char(char c) {
-  if (c >= 32 && c <= 126) {
-    printf("%c", c);
-  } else if (c == '\n') {
-    printf("\n");
-  } else {
-    printf("[%02X]", c);
+void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
+  if (gfxt_cmd_registry_len < MAX_COMMANDS) {
+    gfxt_cmd_registry[gfxt_cmd_registry_len] = (cmd_entry_t){name, func, help};
+    gfxt_cmd_registry_len++;
   }
 }
 
-void test_scroll(const char* msg) {
-  while (*msg) {
-    debug_char(*msg);
-    msg++;
+void gfxt_run_cmd(const char* line) {
+  char cmd[32];
+  char args[128];
+  sscanf(line, "%31s %127[^\n]", cmd, args);
+
+  for (int i = 0; i < gfxt_cmd_registry_len; i++) {
+    if (strcmp(gfxt_cmd_registry[i].name, cmd) == 0) {
+      int code = gfxt_cmd_registry[i].func(args);
+      if (code != 0) {
+        gfxt_printf(TERM_RED "> %d\n" TERM_RESET, code);
+      }
+      return;
+    }
   }
+
+  gfxt_printf(TERM_RED "Command not found: %s\n" TERM_RESET, cmd);
 }
 
 void prompt() {
@@ -72,10 +70,10 @@ void prompt() {
   input_start = cursor;
 }
 
-void gfxt_init(int w_chars, int h_chars, void (*_eval_fn)(const char*), const char* (*_prompt_fn)(void)) {
+void gfxt_init(int w_chars, int h_chars, const char* (*_prompt_fn)(void), void (*_eval_fn)(const char*)) {
   width = w_chars;
   height = h_chars;
-  eval_fn = _eval_fn;
+  eval_fn = _eval_fn ? _eval_fn : gfxt_run_cmd;
   prompt_fn = _prompt_fn;
   buffer_size = width * height * 2;
   buffer = malloc(buffer_size);
@@ -83,79 +81,8 @@ void gfxt_init(int w_chars, int h_chars, void (*_eval_fn)(const char*), const ch
   if (buffer == NULL) return;
   fg_color = default_fg_color;
   bg_color = default_bg_color;
-  scroll_fn = test_scroll;
   initialized = 1;
   prompt();
-}
-
-void ansi_reset(int *state, int *param_count, int *params) {
-  *state = 0;
-  *param_count = 0;
-  for (int i = 0; i < 8; i++) params[i] = 0;
-}
-
-int ansi_feed(char c, int *state, int *param_count, int *params) {
-  switch (*state) {
-    case 0:
-      if (c == '\x1b') {
-        *state = 1;
-        return ANSI_NONE;
-      }
-      return NON_ANSI_CHAR;
-    case 1:
-      if (c == '[') {
-        *state = 2;
-        *param_count = 0;
-        for (int i = 0; i < 8; i++) params[i] = 0;
-        return ANSI_NONE;
-      }
-      ansi_reset(state, param_count, params);
-      return NON_ANSI_CHAR;
-    case 2:
-      if (c >= '0' && c <= '9') {
-        if (*param_count < 8) {
-          params[*param_count] = params[*param_count] * 10 + (c - '0');
-        }
-        return ANSI_NONE;
-      } else if (c == ';') {
-        (*param_count)++;
-        return ANSI_NONE;
-      } else {
-        int action = ANSI_NONE;
-        switch (c) {
-          case 'm':
-            action = ANSI_COLOR;
-            break;
-          case 'A':
-            action = ANSI_CURSOR_UP;
-            break;
-          case 'B':
-            action = ANSI_CURSOR_DOWN;
-            break;
-          case 'C':
-            action = ANSI_CURSOR_RIGHT;
-            break;
-          case 'D':
-            action = ANSI_CURSOR_LEFT;
-            break;
-          case 'H':
-            action = ANSI_CURSOR_POS;
-            break;
-          case 'J':
-            if (params[0] == 2) action = ANSI_CLEAR_SCREEN;
-            break;
-          case 'K':
-            action = ANSI_CLEAR_LINE;
-            break;
-          case 'l':
-          case 'L':
-            action = ANSI_CLEAR_SCREEN;
-            break;
-        }
-        return action;
-      }
-  }
-  return ANSI_NONE;
 }
 
 void update_xy(char c, int *x, int *y, int check_scroll) {

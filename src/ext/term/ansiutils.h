@@ -6,6 +6,32 @@
 extern "C" {
 #endif
 
+#define TERM_RESET      "\033[0m"
+#define TERM_BOLD       "\033[1m"
+#define TERM_BLACK      "\033[30m"
+#define TERM_RED        "\033[31m"
+#define TERM_GREEN      "\033[32m"
+#define TERM_YELLOW     "\033[33m"
+#define TERM_BLUE       "\033[34m"
+#define TERM_MAGENTA    "\033[35m"
+#define TERM_CYAN       "\033[36m"
+#define TERM_WHITE      "\033[37m"
+#define TERM_BBLACK     "\033[90m"
+#define TERM_BRED       "\033[91m"
+#define TERM_BGREEN     "\033[92m"
+#define TERM_BYELLOW    "\033[93m"
+#define TERM_BBLUE      "\033[94m"
+#define TERM_BMAGENTA   "\033[95m"
+#define TERM_BCYAN      "\033[96m"
+#define TERM_BWHITE     "\033[97m"
+#define TERM_BG_BLACK   "\033[40m"
+#define TERM_BG_RED     "\033[41m"
+#define TERM_BG_GREEN   "\033[42m"
+#define TERM_BG_YELLOW  "\033[43m"
+#define TERM_BG_BLUE    "\033[44m"
+#define TERM_BG_MAGENTA "\033[45m"
+#define TERM_BG_CYAN    "\033[46m"
+
 // RGB888 → RGB565: R(5) | G(6) | B(5)
 #define RGB565(r, g, b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
 
@@ -223,26 +249,22 @@ static uint8_t palette[16][3] = {
 
 #define NUM_THEMES (sizeof(themes) / sizeof(themes[0]))
 
-static uint16_t current_theme = 0;
+#define NON_ANSI_CHAR -1
+#define ANSI_NONE 0
+#define ANSI_COLOR 1
+#define ANSI_CURSOR_UP 2
+#define ANSI_CURSOR_DOWN 3
+#define ANSI_CURSOR_RIGHT 4
+#define ANSI_CURSOR_LEFT 5
+#define ANSI_CURSOR_POS 6
+#define ANSI_CLEAR_SCREEN 7
+#define ANSI_CLEAR_LINE 8
+#define ANSI_ERASE_LINE 9
 
-void ansi_set_theme(int theme) {
-  if (theme < 0) {
-    ansi_set_theme((current_theme + 1) % NUM_THEMES);
-    return;
-  }
-  if (theme >= (int) NUM_THEMES) return;
-  current_theme = theme;
-  for (int i = 0; i < 16; i++) {
-    uint16_t c = themes[theme][i];
-    palette[i][0] = (c >> 11) << 3;
-    palette[i][1] = ((c >> 5) & 0x3F) << 2;
-    palette[i][2] = (c & 0x1F) << 3;
-  }
-}
-
-void ansi_set_color(int color) {
-  gfx_set_color(palette[color][0], palette[color][1], palette[color][2]);
-}
+void ansi_set_theme(int theme);
+void ansi_set_color(int color);
+void ansi_reset(int *state, int *param_count, int *params);
+int ansi_feed(char c, int *state, int *param_count, int *params);
 
 #ifdef __cplusplus
 }

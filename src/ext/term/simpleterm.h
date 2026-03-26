@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "ansiutils.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -7,34 +8,20 @@ extern "C" {
 
 extern volatile char gfxt_stdin;
 
-#define TERM_RESET      "\033[0m"
-#define TERM_BOLD       "\033[1m"
-#define TERM_BLACK      "\033[30m"
-#define TERM_RED        "\033[31m"
-#define TERM_GREEN      "\033[32m"
-#define TERM_YELLOW     "\033[33m"
-#define TERM_BLUE       "\033[34m"
-#define TERM_MAGENTA    "\033[35m"
-#define TERM_CYAN       "\033[36m"
-#define TERM_WHITE      "\033[37m"
-#define TERM_BBLACK     "\033[90m"
-#define TERM_BRED       "\033[91m"
-#define TERM_BGREEN     "\033[92m"
-#define TERM_BYELLOW    "\033[93m"
-#define TERM_BBLUE      "\033[94m"
-#define TERM_BMAGENTA   "\033[95m"
-#define TERM_BCYAN      "\033[96m"
-#define TERM_BWHITE     "\033[97m"
-#define TERM_BG_BLACK   "\033[40m"
-#define TERM_BG_RED     "\033[41m"
-#define TERM_BG_GREEN   "\033[42m"
-#define TERM_BG_YELLOW  "\033[43m"
-#define TERM_BG_BLUE    "\033[44m"
-#define TERM_BG_MAGENTA "\033[45m"
-#define TERM_BG_CYAN    "\033[46m"
-#define TERM_BG_WHITE   "\033[47m"
+#define MAX_COMMANDS 64
 
-void gfxt_init(int w_chars, int h_chars, void (*eval_fn)(const char*), const char* (*prompt_fn)(void));
+typedef struct {
+  const char* name;
+  int (*func)(const char*);
+  const char* help;
+} cmd_entry_t;
+
+extern cmd_entry_t gfxt_cmd_registry[MAX_COMMANDS];
+extern int gfxt_cmd_registry_len;
+
+void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*));
+void gfxt_run_cmd(const char* line);
+void gfxt_init(int w_chars, int h_chars, const char* (*prompt_fn)(void), void (*eval_fn)(const char*));
 void gfxt_putchar(char c);
 int gfxt_print(const char *str);
 int gfxt_println(const char *str);

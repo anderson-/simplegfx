@@ -8,6 +8,8 @@
 static const char* (*prompt_fn)() = NULL;
 static void (*eval_fn)(const char*) = NULL;
 static void (*scroll_fn)(const char*) = NULL;
+static void (*history_push_fn)(const char*) = NULL;
+static const char* (*history_prev_fn)(int) = NULL;
 
 cmd_entry_t gfxt_cmd_registry[MAX_COMMANDS];
 int gfxt_cmd_registry_len = 0;
@@ -70,11 +72,14 @@ void prompt() {
   input_start = cursor;
 }
 
-void gfxt_init(int w_chars, int h_chars, const char* (*_prompt_fn)(void), void (*_eval_fn)(const char*)) {
+void gfxt_init(int w_chars, int h_chars, const char* (*_prompt_fn)(void), void (*_eval_fn)(const char*), void (*_scroll_fn)(const char*), void (*_history_push_fn)(const char*), const char* (*_history_prev_fn)(int)) {
   width = w_chars;
   height = h_chars;
   eval_fn = _eval_fn ? _eval_fn : gfxt_run_cmd;
   prompt_fn = _prompt_fn;
+  scroll_fn = _scroll_fn;
+  history_push_fn = _history_push_fn;
+  history_prev_fn = _history_prev_fn;
   buffer_size = width * height * 2;
   buffer = malloc(buffer_size);
   memset(buffer, 0, buffer_size);
@@ -330,6 +335,7 @@ void gfxt_on_key(uint8_t key) {
     char input[256];
     memcpy(input, buffer + input_start, cursor - input_start - 1);
     input[cursor - input_start - 1] = 0;
+    if (history_push_fn) history_push_fn(input);
     eval_fn(input);
     prompt();
   }

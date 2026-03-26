@@ -21,7 +21,7 @@ void gfx_app(int init) {
   int h = WINDOW_HEIGHT / fh;
   x = (WINDOW_WIDTH - w * fw) / 2;
   y = (WINDOW_HEIGHT - h * fh) / 2;
-  gfxt_init(w, h, get_prompt, NULL);
+  gfxt_init(w, h, get_prompt, NULL, NULL, NULL, NULL);
   gfxt_std_cmd_reg();
 }
 

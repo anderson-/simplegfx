@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ansiutils.h"
 #include "simpleterm.h"
 #include <time.h>
 #include <stdio.h>
@@ -57,33 +58,27 @@ int cmd_ansi(const char *args) {
 }
 
 int cmd_palette(const char *args) {
-  gfxt_printf("\x1b[1mColor Test:\x1b[0m\n");
-  gfxt_printf("Normal: ");
-  for (int i = 30; i <= 37; i++) {
-    gfxt_printf("\x1b[%dm%d ", i, i);
+  for (int bg = 40; bg <= 47; bg++) {
+    gfxt_printf("%d \x1b[%dm", bg, bg);
+    for (int fg = 30; fg <= 37; fg++) {
+      gfxt_printf("\x1b[%dm%d ", fg, fg);
+    }
+    gfxt_printf("\x1b[0m\n");
   }
-  gfxt_printf("\x1b[0m\n");
-
-  gfxt_printf("Bright: ");
+  gfxt_printf("40 \x1b[0m");
   for (int i = 90; i <= 97; i++) {
     gfxt_printf("\x1b[%dm%d ", i, i);
   }
   gfxt_printf("\x1b[0m\n");
-
-  gfxt_printf("\nBackgrounds:\n");
-  for (int bg = 40; bg <= 47; bg++) {
-    gfxt_printf("\x1b[%dmText ", bg);
-    for (int fg = 30; fg <= 37; fg++) {
-      gfxt_printf("\x1b[%d;%dmA ", fg, bg);
-    }
-    gfxt_printf("\x1b[0m\n");
-  }
   return 0;
 }
 
 int cmd_ascii(const char *args) {
-  (void)args;
-  for (int i = 0; i < 256; i++) {
+  int max = 256;
+  sscanf(args, "%d", &max);
+  if (max < 0) max = 0;
+  if (max > 256) max = 256;
+  for (int i = 0; i < max; i++) {
     gfxt_printf(TERM_BBLACK "%02x " TERM_RESET "%c ", i, i);
     if ((i + 1) % 4 == 0) gfxt_println("");
   }
@@ -134,9 +129,8 @@ int cmd_boxdrawing(const char *args) {
 }
 
 int cmd_help(const char *args) {
-  gfxt_println("Available commands:");
   for (int i = 0; i < gfxt_cmd_registry_len; i++) {
-    gfxt_printf("  %s - %s\n", gfxt_cmd_registry[i].name, gfxt_cmd_registry[i].help);
+    gfxt_printf(TERM_CYAN " %s" TERM_RESET " \x1a %s\n", gfxt_cmd_registry[i].name, gfxt_cmd_registry[i].help);
   }
   return 0;
 }

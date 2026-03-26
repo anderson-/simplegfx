@@ -21,7 +21,7 @@ extern int gfxt_cmd_registry_len;
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*));
 void gfxt_run_cmd(const char* line);
-void gfxt_init(int w_chars, int h_chars, const char* (*prompt_fn)(void), void (*eval_fn)(const char*));
+void gfxt_init(int w_chars, int h_chars, const char* (*prompt_fn)(void), void (*eval_fn)(const char*), void (*scroll_fn)(const char*), void (*history_push_fn)(const char*), const char* (*history_pop_fn)());
 void gfxt_putchar(char c);
 int gfxt_print(const char *str);
 int gfxt_println(const char *str);

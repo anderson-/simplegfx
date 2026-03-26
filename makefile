@@ -14,11 +14,13 @@ SOURCES  = $(filter-out $(BACKENDS)/%, $(wildcard $(LIBS)/*.c)) $(wildcard $(LIB
 CFLAGS   = -std=c99 -Wall -g -Os -flto ${INCLUDES} ${XTRA_CFLAGS}
 
 EXAMPLES := $(patsubst examples/%.c,%,$(wildcard examples/*.c))
+PLATFORMS := sdl sdl1.2 macos
 
 # Platform flags
 PLATFORM_FLAGS_sdl = -lSDL2 -DGFX_SDL2 src/backends/gfx_sdl.c
 PLATFORM_FLAGS_sdl1.2 = -lSDL -DGFX_SDL src/backends/gfx_sdl.c
 PLATFORM_FLAGS_rg35xx = -lSDL -lasound -DGFX_SDL src/backends/gfx_sdl.c
+PLATFORM_FLAGS_macos = -framework Cocoa -framework AudioToolbox -lobjc -DGFX_MACOS src/backends/gfx_macos.m
 
 IMAGE = nfriedly/miyoo-toolchain:steward
 DOCKER = docker run --platform linux/amd64 --rm -it \
@@ -41,12 +43,12 @@ shell:
 	nix-shell
 
 .PHONY: all
-all: $(foreach p,sdl sdl1.2,$(addprefix $(p)-,$(EXAMPLES)))
+all: $(foreach p,$(PLATFORMS),$(addprefix $(p)-,$(EXAMPLES)))
 
 # ── sdl / sdl1.2 ─────────────────────────────────────────────────────────────
 
-.PHONY: $(foreach p,sdl sdl1.2,$(addprefix $(p)-,$(EXAMPLES)))
-$(foreach p,sdl sdl1.2,$(addprefix $(p)-, $(EXAMPLES))): %:
+.PHONY: $(foreach p,$(PLATFORMS),$(addprefix $(p)-,$(EXAMPLES)))
+$(foreach p,$(PLATFORMS),$(addprefix $(p)-, $(EXAMPLES))): %:
 	$(eval PLAT := $(firstword $(subst -, ,$*)))
 	$(eval EXAM := $(patsubst $(PLAT)-%,%,$*))
 	mkdir -p ${BUILD}
@@ -55,8 +57,8 @@ $(foreach p,sdl sdl1.2,$(addprefix $(p)-, $(EXAMPLES))): %:
 
 # ── sdl / sdl1.2 screenshot ──────────────────────────────────────────────────
 
-.PHONY: $(foreach p,sdl sdl1.2,$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot))
-$(foreach p,sdl sdl1.2,$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot)): %-screenshot:
+.PHONY: $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot))
+$(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot)): %-screenshot:
 	$(eval PLAT := $(firstword $(subst -, ,$*)))
 	$(eval EXAM := $(patsubst $(PLAT)-%,%,$*))
 	mkdir -p ${BUILD}
@@ -67,8 +69,8 @@ $(foreach p,sdl sdl1.2,$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot)): %-screens
 
 # ── run ──────────────────────────────────────────────────────────────────────
 
-.PHONY: $(foreach p,sdl sdl1.2,$(foreach e,$(EXAMPLES),$(p)-$(e)-run))
-$(foreach p,sdl sdl1.2,$(foreach e,$(EXAMPLES),$(p)-$(e)-run)): %-run: %
+.PHONY: $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-run))
+$(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-run)): %-run: %
 	./${BUILD}/$*
 
 # ── rg35xx ───────────────────────────────────────────────────────────────────

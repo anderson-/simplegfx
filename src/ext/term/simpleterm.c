@@ -6,7 +6,7 @@
 #include "simplegfx.h"
 
 static const char* (*prompt_fn)() = NULL;
-static void (*eval_fn)(const char*) = NULL;
+static int (*eval_fn)(const char*) = NULL;
 static void (*scroll_fn)(const char*) = NULL;
 static void (*history_push_fn)(const char*) = NULL;
 static const char* (*history_prev_fn)(int) = NULL;
@@ -49,10 +49,12 @@ void gfxt_register_cmd(const char* name, const char* help, int (*func)(const cha
   }
 }
 
-void gfxt_run_cmd(const char* line) {
-  char cmd[32];
-  char args[128];
-  sscanf(line, "%31s %127[^\n]", cmd, args);
+int gfxt_run_cmd(const char* line) {
+  char cmd[32] = {0};
+  char args[128] = {0};
+  if (sscanf(line, "%31s %127[^\n]", cmd, args) < 1) {
+    return 1;
+  }
 
   for (int i = 0; i < gfxt_cmd_registry_len; i++) {
     if (strcmp(gfxt_cmd_registry[i].name, cmd) == 0) {
@@ -60,11 +62,12 @@ void gfxt_run_cmd(const char* line) {
       if (code != 0) {
         gfxt_printf(TERM_BRED "\x13%d\n" TERM_RESET, code);
       }
-      return;
+      return code;
     }
   }
 
   gfxt_printf(TERM_RED "Command not found: %s\n" TERM_RESET, cmd);
+  return 1;
 }
 
 void prompt() {
@@ -72,7 +75,7 @@ void prompt() {
   input_start = cursor;
 }
 
-void gfxt_init(int w_chars, int h_chars, const char* (*_prompt_fn)(void), void (*_eval_fn)(const char*), void (*_scroll_fn)(const char*), void (*_history_push_fn)(const char*), const char* (*_history_prev_fn)(int)) {
+void gfxt_init(int w_chars, int h_chars, const char* (*_prompt_fn)(void), int (*_eval_fn)(const char*), void (*_scroll_fn)(const char*), void (*_history_push_fn)(const char*), const char* (*_history_prev_fn)(int)) {
   width = w_chars;
   height = h_chars;
   eval_fn = _eval_fn ? _eval_fn : gfxt_run_cmd;

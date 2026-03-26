@@ -76,6 +76,10 @@ extern unsigned int _seed;
 uint16_t* gfx_get_frame_buffer(void);
 #endif
 
+#if defined(GFX_MACOS)
+uint16_t* gfx_get_frame_buffer(void);
+#endif
+
 #if defined(GFX_SDL) || defined(GFX_SDL2)
 #ifdef GFX_SDL2
   #include <SDL2/SDL.h>
@@ -85,6 +89,11 @@ uint16_t* gfx_get_frame_buffer(void);
   #include <SDL/SDL.h>
   extern SDL_Surface * screen;
 #endif
+void beep(int freq, int ms);
+extern double volume;
+#endif
+
+#if defined(GFX_MACOS)
 void beep(int freq, int ms);
 extern double volume;
 #endif

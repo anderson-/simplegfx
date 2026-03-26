@@ -304,9 +304,8 @@ void gfxt_draw(int x, int y, int size) {
       ansi_set_color(bg_color);
       gfx_fill_rect(px, py, fwidth, fheight);
       if (c != ' ' && c != '\n') {
-        char buf[2] = { c, 0 };
         ansi_set_color(fg_color);
-        gfx_text(buf, px, py, size);
+        gfx_draw_char(c, px, py, size, f.data, f.width, f.height);
       }
     }
     i++;

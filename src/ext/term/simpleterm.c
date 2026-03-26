@@ -60,12 +60,10 @@ void debug_char(char c) {
 }
 
 void test_scroll(const char* msg) {
-  printf("SCROLL: |");
   while (*msg) {
     debug_char(*msg);
     msg++;
   }
-  printf("|\n");
 }
 
 void prompt() {
@@ -178,7 +176,7 @@ void update_xy(char c, int *x, int *y, int check_scroll) {
     (*y)++;
     if (check_scroll && first_line_end == 0) first_line_end = current_char + 1;
   }
-  if (check_scroll && *x + 1 >= width && *y + 1 >= height) {
+  if (check_scroll && ((*x + 1 >= width && *y + 1 >= height) || *y >= height)) {
     scroll = 1;
   }
 }
@@ -215,6 +213,8 @@ void gfxt_putchar(char c) {
         if (action == NON_ANSI_CHAR) {
           update_xy(*p, &putchar_x, &putchar_y, 1);
           current_char = p - buffer;
+        } else if (action > 0) {
+          ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
         }
         p++;
       }
@@ -224,6 +224,8 @@ void gfxt_putchar(char c) {
   if (action == NON_ANSI_CHAR) {
     update_xy(c, &putchar_x, &putchar_y, 1);
     current_char = cursor;
+  } else if (action > 0) {
+    ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
   }
   buffer[cursor] = c;
   cursor++;
@@ -320,7 +322,6 @@ char gfxt_process_char(char c) {
             bg_color = bg;
           }
         }
-        ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
         break;
       case ANSI_CURSOR_LEFT:
         cursor--;
@@ -341,6 +342,7 @@ char gfxt_process_char(char c) {
         //txt_clear();
         break;
     }
+    ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
   }
   return 0;
 }

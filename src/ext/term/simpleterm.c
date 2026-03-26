@@ -4,6 +4,7 @@
 #include <string.h>
 #include "simpleterm.h"
 #include "simplegfx.h"
+#include "ansiutils.h"
 
 #define NON_ANSI_CHAR -1
 #define ANSI_NONE 0
@@ -347,27 +348,8 @@ char gfxt_process_char(char c) {
   return 0;
 }
 
-static uint8_t palette[16][3] = {
-  {0x00, 0x00, 0x00}, // Black
-  {0xFF, 0x00, 0x00}, // Red
-  {0x00, 0xFF, 0x00}, // Green
-  {0xFF, 0xFF, 0x00}, // Yellow
-  {0x00, 0x00, 0xFF}, // Blue
-  {0xFF, 0x00, 0xFF}, // Magenta
-  {0x00, 0xFF, 0xFF}, // Cyan
-  {0xFF, 0xFF, 0xFF}, // White
-  {0x80, 0x80, 0x80}, // Bright Black
-  {0xFF, 0x80, 0x80}, // Bright Red
-  {0x80, 0xFF, 0x80}, // Bright Green
-  {0xFF, 0xFF, 0x80}, // Bright Yellow
-  {0x80, 0x80, 0xFF}, // Bright Blue
-  {0xFF, 0x80, 0xFF}, // Bright Magenta
-  {0x80, 0xFF, 0xFF}, // Bright Cyan
-  {0xFF, 0xFF, 0xFF}  // Bright White
-};
-
-void set_color(int color) {
-  gfx_set_color(palette[color][0], palette[color][1], palette[color][2]);
+void gfxt_set_theme(int theme) {
+  ansi_set_theme(theme);
 }
 
 void gfxt_draw(int x, int y, int size) {
@@ -378,6 +360,8 @@ void gfxt_draw(int x, int y, int size) {
   font_t f = *gfx_get_font();
   int fheight = f.height;
   int fwidth = f.width;
+  ansi_set_color(bg_color);
+  gfx_fill_rect(x, y, (fwidth * size + size) * width, (fheight * size + size) * height);
   int i = 0;
   char c = buffer[i];
   while (1) {
@@ -385,18 +369,18 @@ void gfxt_draw(int x, int y, int size) {
     int py = y + pos_y * (fheight * size + size);
     c = gfxt_process_char(c);
     if (c) {
-      set_color(bg_color);
+      ansi_set_color(bg_color);
       gfx_fill_rect(px, py, fwidth * size + size, fheight * size + size);
       if (c != ' ' && c != '\n') {
         char buf[2] = { c, 0 };
-        set_color(fg_color);
+        ansi_set_color(fg_color);
         gfx_text(buf, px, py, size);
       }
     }
     i++;
     c = buffer[i];
     if (cursor == i && frame % 20 < 10) {
-      set_color(cursor_color);
+      ansi_set_color(cursor_color);
       int px = x + pos_x * (fwidth * size + size);
       int py = y + pos_y * (fheight * size + size);
       gfx_fill_rect(px, py, fwidth * size + size, fheight * size + size);

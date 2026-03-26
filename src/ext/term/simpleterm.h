@@ -43,6 +43,7 @@ void gfxt_clear();
 char gfxt_getchar();
 char* gfxt_gets(char *str, int count);
 int gfxt_scanf(const char *format, ...);
+void gfxt_set_theme(int theme);
 void gfxt_draw(int x, int y, int size);
 void gfxt_on_key(uint8_t key);
 

@@ -140,6 +140,9 @@ void execute_command(const char *line) {
       gfxt_printf("\x1b[0m\n");
     }
   }
+  else if (strcmp(cmd, "theme") == 0) {
+    gfxt_set_theme(-1);
+  }
   else if (strcmp(cmd, "about") == 0) {
     gfxt_printf("\x1b[1;36mSimple Terminal v1.0\x1b[0m\n");
     gfxt_printf("A lightweight terminal emulator built with SimpleGFX\n");

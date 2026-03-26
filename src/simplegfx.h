@@ -42,6 +42,7 @@ extern char * printf_buf;
 extern int printf_size;
 extern int printf_len;
 extern int full_kb;
+extern int spacing;
 
 extern void (* gfx_yeld)();
 

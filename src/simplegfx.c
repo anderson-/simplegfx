@@ -7,6 +7,7 @@ char * printf_buf = NULL;
 int printf_size = 0;
 int printf_len = 0;
 int full_kb = 0;
+int spacing = 1;
 void (* gfx_yeld)() = NULL;
 
 void gfx_set_font(font_t * font) {
@@ -35,27 +36,27 @@ int gfx_text(const char * text, int x, int y, int size) {
   if (text == NULL || _font == NULL) {
     return y;
   }
-  int cx = x;
-  int cy = y;
+  int len = (int)strlen(text);
   font_t f = *_font;
   int fheight = f.height;
   int fwidth = f.width;
-  cy += fheight * size;
-  int len = (int)strlen(text);
+  y += fheight * size;
+  int cx = x;
+  int cy = y;
   for (int i = 0; i < len; i++) {
     uint8_t C = (uint8_t)text[i];
     if (C == '\r' && text[i + 1] == '\n') {
       i++;
       cx = x;
-      cy += fheight * size + size;
+      cy += fheight * size + spacing * size;
       if (cy > WINDOW_HEIGHT) {
         cy = y;
       }
       continue;
     }
     for (int c = 0; c < fwidth; c++) {
-      for (uint8_t l = 0; l < fheight; l++) {
-        uint8_t mask = 1 << (fheight - l - 1);
+      for (uint8_t l = 1; l <= fheight; l++) {
+        uint8_t mask = 1 << (fheight - l);
         if (f.data[C * fwidth + c] & mask) {
           if (size == 1) {
             gfx_point(cx + c, cy - l);
@@ -65,13 +66,13 @@ int gfx_text(const char * text, int x, int y, int size) {
         }
       }
     }
-    cx += fwidth * size + size;
+    cx += fwidth * size + spacing * size;
     if (cx > WINDOW_WIDTH) {
       cx = x;
-      cy += fheight * size + size;
+      cy += fheight * size + spacing * size;
     }
   }
-  cy += fheight * size + size;
+  cy += fheight * size + spacing * size;
   return cy;
 }
 
@@ -116,11 +117,11 @@ int gfx_font_table(int x, int y, int size) {
     for (int j = 0; j < 32; j++) {
       t[0] = i * 32 + j;
       if ((uint8_t)t[0] >= f.count) break;
-      gfx_text(t, x + j * (f.width * size + size),
-           y + i * (f.height * size + size), size);
+      gfx_text(t, x + j * (f.width * size + spacing * size),
+           y + i * (f.height * size + spacing * size), size);
     }
   }
-  return y + 8 * (f.height * size + size);
+  return y + 8 * (f.height * size + spacing * size);
 }
 
 unsigned int _seed = 12345;

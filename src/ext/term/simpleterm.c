@@ -290,19 +290,19 @@ void gfxt_draw(int x, int y, int size) {
   pos_y = 0;
   ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
   font_t f = *gfx_get_font();
-  int fheight = f.height;
-  int fwidth = f.width;
+  int fheight = (f.height + spacing) * size;
+  int fwidth = (f.width + spacing) * size;
   ansi_set_color(bg_color);
-  gfx_fill_rect(x, y, (fwidth * size + size) * width, (fheight * size + size) * height);
+  gfx_fill_rect(x, y, fwidth * width, fheight * height);
   int i = 0;
   char c = buffer[i];
   while (1) {
-    int px = x + pos_x * (fwidth * size + size);
-    int py = y + pos_y * (fheight * size + size);
+    int px = x + pos_x * fwidth;
+    int py = y + pos_y * fheight;
     c = gfxt_process_char(c);
     if (c) {
       ansi_set_color(bg_color);
-      gfx_fill_rect(px, py, fwidth * size + size, fheight * size + size);
+      gfx_fill_rect(px, py, fwidth, fheight);
       if (c != ' ' && c != '\n') {
         char buf[2] = { c, 0 };
         ansi_set_color(fg_color);
@@ -313,9 +313,9 @@ void gfxt_draw(int x, int y, int size) {
     c = buffer[i];
     if (cursor == i && frame % 20 < 10) {
       ansi_set_color(cursor_color);
-      int px = x + pos_x * (fwidth * size + size);
-      int py = y + pos_y * (fheight * size + size);
-      gfx_fill_rect(px, py, fwidth * size + size, fheight * size + size);
+      int px = x + pos_x * fwidth;
+      int py = y + pos_y * fheight;
+      gfx_fill_rect(px, py, fwidth, fheight);
     }
     if (!c) break;
   }

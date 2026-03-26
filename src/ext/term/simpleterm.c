@@ -33,6 +33,11 @@ static int current_char = 0;
 static int ansi_state = 0;
 static int ansi_params[8];
 static int ansi_param_count = 0;
+static int putchar_ansi_state = 0;
+static int putchar_ansi_params[8];
+static int putchar_ansi_param_count = 0;
+static int putchar_x = 0;
+static int putchar_y = 0;
 static int default_fg_color = 7;
 static int default_bg_color = 0;
 static int fg_color = 0;
@@ -40,10 +45,9 @@ static int bg_color = 0;
 static int pos_x = 0;
 static int pos_y = 0;
 volatile char gfxt_stdin = 1;
-static int counter = 0;
 int cursor_color = 7;
 int frame = 0;
-int draw_index = 0;
+int scroll = 0;
 
 void debug_char(char c) {
   if (c >= 32 && c <= 126) {
@@ -82,18 +86,148 @@ void gfxt_init(int w_chars, int h_chars, void (*_eval_fn)(const char*), const ch
   bg_color = default_bg_color;
   scroll_fn = test_scroll;
   initialized = 1;
-  //prompt();
-  for (int j = 0; j < 52; j++) {
-    for (int i = 0; i < 11; i++) {
-      buffer[j * 11 + i] = (i % 95) + 49;
-      cursor++;
-    }
+  prompt();
+}
+
+void ansi_reset(int *state, int *param_count, int *params) {
+  *state = 0;
+  *param_count = 0;
+  for (int i = 0; i < 8; i++) params[i] = 0;
+}
+
+int ansi_feed(char c, int *state, int *param_count, int *params) {
+  switch (*state) {
+    case 0:
+      if (c == '\x1b') {
+        *state = 1;
+        return ANSI_NONE;
+      }
+      return NON_ANSI_CHAR;
+    case 1:
+      if (c == '[') {
+        *state = 2;
+        *param_count = 0;
+        for (int i = 0; i < 8; i++) params[i] = 0;
+        return ANSI_NONE;
+      }
+      ansi_reset(state, param_count, params);
+      return NON_ANSI_CHAR;
+    case 2:
+      if (c >= '0' && c <= '9') {
+        if (*param_count < 8) {
+          params[*param_count] = params[*param_count] * 10 + (c - '0');
+        }
+        return ANSI_NONE;
+      } else if (c == ';') {
+        (*param_count)++;
+        return ANSI_NONE;
+      } else {
+        int action = ANSI_NONE;
+        switch (c) {
+          case 'm':
+            action = ANSI_COLOR;
+            break;
+          case 'A':
+            action = ANSI_CURSOR_UP;
+            break;
+          case 'B':
+            action = ANSI_CURSOR_DOWN;
+            break;
+          case 'C':
+            action = ANSI_CURSOR_RIGHT;
+            break;
+          case 'D':
+            action = ANSI_CURSOR_LEFT;
+            break;
+          case 'H':
+            action = ANSI_CURSOR_POS;
+            break;
+          case 'J':
+            if (params[0] == 2) action = ANSI_CLEAR_SCREEN;
+            break;
+          case 'K':
+            action = ANSI_CLEAR_LINE;
+            break;
+          case 'l':
+          case 'L':
+            action = ANSI_CLEAR_SCREEN;
+            break;
+        }
+        return action;
+      }
+  }
+  return ANSI_NONE;
+}
+
+void update_xy(char c, int *x, int *y, int check_scroll) {
+  if (c == '\n') {
+    *x = 0;
+    (*y)++;
+    if (check_scroll && first_line_end == 0) first_line_end = current_char + 1;
+  } else if (c == '\r') {
+    *x = 0;
+  } else if (c == '\b') {
+    (*x)--;
+  } else {
+    (*x)++;
+  }
+  if (*x < 0) *x = 0;
+  if (*y < 0) *y = 0;
+  if (*x >= width) {
+    *x = 0;
+    (*y)++;
+    if (check_scroll && first_line_end == 0) first_line_end = current_char + 1;
+  }
+  if (check_scroll && *x + 1 >= width && *y + 1 >= height) {
+    scroll = 1;
   }
 }
 
 void gfxt_putchar(char c) {
+  if (scroll) {
+    first_line_end++;
+    char end = buffer[first_line_end];
+    buffer[first_line_end] = '\0';
+    if (scroll_fn) scroll_fn(buffer);
+    buffer[first_line_end] = end;
+    char * src = buffer + first_line_end;
+    char * dst = buffer;
+    while (*src) {
+      *dst = *src;
+      src++;
+      dst++;
+    }
+    memset(dst, 0, buffer_size - (dst - buffer));
+    cursor -= first_line_end;
+    current_char -= first_line_end;
+    input_start -= first_line_end;
+    if (input_start < 0) input_start = 0;
+    scroll = 0;
+    ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
+    { // reset and rescan
+      first_line_end = 0;
+      putchar_x = 0;
+      putchar_y = 0;
+      current_char = 0;
+      char *p = buffer;
+      while (*p) {
+        int action = ansi_feed(*p, &putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
+        if (action == NON_ANSI_CHAR) {
+          update_xy(*p, &putchar_x, &putchar_y, 1);
+          current_char = p - buffer;
+        }
+        p++;
+      }
+    }
+  }
+  int action = ansi_feed(c, &putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
+  if (action == NON_ANSI_CHAR) {
+    update_xy(c, &putchar_x, &putchar_y, 1);
+    current_char = cursor;
+  }
   buffer[cursor] = c;
   cursor++;
+  //buffer[cursor] = '\0';
 }
 
 int gfxt_print(const char *str) {
@@ -158,145 +292,10 @@ int gfxt_scanf(const char *format, ...) {
   return count;
 }
 
-void ansi_reset(void) {
-  ansi_state = 0;
-  ansi_param_count = 0;
-  for (int i = 0; i < 8; i++) ansi_params[i] = 0;
-}
-
-int ansi_feed(char c) {
-  switch (ansi_state) {
-    case 0:
-      if (c == '\x1b') {
-        ansi_state = 1;
-        return ANSI_NONE;
-      }
-      return -1;
-    case 1:
-      if (c == '[') {
-        ansi_state = 2;
-        ansi_param_count = 0;
-        for (int i = 0; i < 8; i++) ansi_params[i] = 0;
-        return ANSI_NONE;
-      }
-      ansi_reset();
-      return -1;
-    case 2:
-      if (c >= '0' && c <= '9') {
-        if (ansi_param_count < 8) {
-          ansi_params[ansi_param_count] = ansi_params[ansi_param_count] * 10 + (c - '0');
-        }
-        return ANSI_NONE;
-      } else if (c == ';') {
-        ansi_param_count++;
-        return ANSI_NONE;
-      } else {
-        int action = ANSI_NONE;
-        switch (c) {
-          case 'm':
-            action = ANSI_COLOR;
-            break;
-          case 'A':
-            action = ANSI_CURSOR_UP;
-            break;
-          case 'B':
-            action = ANSI_CURSOR_DOWN;
-            break;
-          case 'C':
-            action = ANSI_CURSOR_RIGHT;
-            break;
-          case 'D':
-            action = ANSI_CURSOR_LEFT;
-            break;
-          case 'H':
-            action = ANSI_CURSOR_POS;
-            break;
-          case 'J':
-            if (ansi_params[0] == 2) action = ANSI_CLEAR_SCREEN;
-            break;
-          case 'K':
-            action = ANSI_CLEAR_LINE;
-            break;
-          case 'l':
-          case 'L':
-            action = ANSI_CLEAR_SCREEN;
-            break;
-        }
-        return action;
-      }
-  }
-  return ANSI_NONE;
-}
-
-int exits = 0;
-
-void update_cursor(char c) {
-  if (pos_y >= height) {
-    char end = buffer[first_line_end + 1];
-    buffer[first_line_end + 1] = '\0';
-    if (scroll_fn) scroll_fn(buffer);
-    buffer[first_line_end + 1] = end;
-    printf("pre scrolling %c - frame %d\n", end, frame);
-
-    for (int i = 0; buffer[i] != '\0'; i++) {
-      debug_char(buffer[i]);
-    }
-    printf("\n");
-
-
-    int i = 0;
-    char * src = buffer + first_line_end + 1;
-    char * dst = buffer;
-    printf("src: %c\n", *src);
-    printf("dst: %c\n", *dst);
-
-    while (*src) {
-      *dst = *src;
-      src++;
-      dst++;
-    }
-    *dst = '\0';
-
-    printf("scrolling\n");
-
-    for (int i = 0; buffer[i] != '\0'; i++) {
-      debug_char(buffer[i]);
-    }
-    printf("\n");
-
-    exits++;
-
-    cursor -= first_line_end + 1;
-    pos_x = 0;
-    pos_y = height - 1; // TODO: scroll
-  }
-  if (c == '\n') {
-    pos_x = 0;
-    pos_y++;
-    if (first_line_end == 0) first_line_end = current_char + 1;
-  } else if (c == '\r') {
-    pos_x = 0;
-  } else if (c == '\b') {
-    pos_x--;
-  } else {
-    pos_x++;
-  }
-  if (pos_x < 0) pos_x = 0;
-  if (pos_y < 0) pos_y = 0;
-  if (pos_x >= width) {
-    pos_x = 0;
-    pos_y++;
-    if (first_line_end == 0) first_line_end = current_char + 1;
-  }
-  if (exits) {
-    return;
-  }
-}
-
 char gfxt_process_char(char c) {
-  int action = ansi_feed(c);
+  int action = ansi_feed(c, &ansi_state, &ansi_param_count, ansi_params);
   if (action == NON_ANSI_CHAR) {
-    update_cursor(c);
+    update_xy(c, &pos_x, &pos_y, 0);
     return c;
   } else if (action > 0) {
     switch (action) {
@@ -321,7 +320,13 @@ char gfxt_process_char(char c) {
             bg_color = bg;
           }
         }
-        ansi_reset();
+        ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
+        break;
+      case ANSI_CURSOR_LEFT:
+        cursor--;
+        break;
+      case ANSI_CURSOR_RIGHT:
+        cursor++;
         break;
       case ANSI_CURSOR_UP:
         //txt_get_cursor(NULL, &height);
@@ -364,43 +369,39 @@ void set_color(int color) {
 }
 
 void gfxt_draw(int x, int y, int size) {
-  size = 1;
-  frame++;
   if (!initialized) return;
   pos_x = 0;
   pos_y = 0;
-  first_line_end = 0;
-  current_char = 0;
+  ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
   font_t f = *gfx_get_font();
   int fheight = f.height;
   int fwidth = f.width;
-  int draw_index = 0;
-  char c = buffer[draw_index];
-  while (c) {
+  int i = 0;
+  char c = buffer[i];
+  while (1) {
     int px = x + pos_x * (fwidth * size + size);
     int py = y + pos_y * (fheight * size + size);
     c = gfxt_process_char(c);
     if (c) {
-      current_char = draw_index;
-      if (!first_line_end) {
-        set_color(default_bg_color + 2);
-      } else {
-        set_color(bg_color);
-      }
+      set_color(bg_color);
       gfx_fill_rect(px, py, fwidth * size + size, fheight * size + size);
       if (c != ' ' && c != '\n') {
         char buf[2] = { c, 0 };
         set_color(fg_color);
         gfx_text(buf, px, py, size);
       }
-      if (cursor == draw_index && ++counter % 20 < 10) {
-        set_color(cursor_color);
-        gfx_fill_rect(px, py, fwidth * size + size, fheight * size + size);
-      }
     }
-    draw_index++;
-    c = buffer[draw_index];
+    i++;
+    c = buffer[i];
+    if (cursor == i && frame % 20 < 10) {
+      set_color(cursor_color);
+      int px = x + pos_x * (fwidth * size + size);
+      int py = y + pos_y * (fheight * size + size);
+      gfx_fill_rect(px, py, fwidth * size + size, fheight * size + size);
+    }
+    if (!c) break;
   }
+  frame++;
 }
 
 void gfxt_on_key(uint8_t key) {

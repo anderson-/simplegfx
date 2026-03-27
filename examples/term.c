@@ -48,13 +48,17 @@ const char* history_prev_fn(int index) {
   return history[idx];
 }
 
+void scroll_fn(const char* line) {
+  printf("scroll: %s\n", line);
+}
+
 const char* get_prompt(void) {
   return "\x1b[32msimplegfx\x1b[m:\x1b[34m~\x1b[m$ ";
 }
 
 int x = 0;
 int y = 0;
-int fsize = 3;
+int fsize = 4;
 
 void gfx_app(int init) {
   font_t * f = gfx_get_font();
@@ -64,7 +68,7 @@ void gfx_app(int init) {
   int h = WINDOW_HEIGHT / fh;
   x = (WINDOW_WIDTH - w * fw) / 2;
   y = (WINDOW_HEIGHT - h * fh) / 2;
-  gfxt_init(w, h, get_prompt, NULL, NULL, history_push_fn, history_prev_fn);
+  gfxt_init(w, h, get_prompt, NULL, scroll_fn, history_push_fn, history_prev_fn);
   gfxt_std_cmd_reg();
 }
 
@@ -91,6 +95,8 @@ int gfx_on_key(char key, int down) {
     last_key = 0;
     return 0;
   }
+
+  printf("%d\n", key);
 
   switch (key) {
     case BTN_UP:

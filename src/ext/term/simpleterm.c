@@ -73,7 +73,7 @@ int gfxt_run_cmd(const char* line) {
 }
 
 void prompt() {
-  gfxt_printf("%s", prompt_fn());
+  gfxt_printf("\x1b[m%s", prompt_fn());
   input_start = cursor;
   draw_cursor = cursor;
   history_index = -1;
@@ -122,6 +122,12 @@ void update_xy(char c, int *x, int *y, int check_scroll) {
 }
 
 void gfxt_putchar(char c) {
+  if (cursor + 64 >= buffer_size) {
+    buffer_size += 64;
+    buffer = realloc(buffer, buffer_size);
+    if (buffer == NULL) return;
+    printf("Buffer resized to %d\n", buffer_size);
+  }
   if (scroll) {
     first_line_end++;
     char end = buffer[first_line_end];
@@ -137,6 +143,7 @@ void gfxt_putchar(char c) {
     }
     memset(dst, 0, buffer_size - (dst - buffer));
     cursor -= first_line_end;
+    draw_cursor -= first_line_end;
     current_char -= first_line_end;
     input_start -= first_line_end;
     if (input_start < 0) input_start = 0;

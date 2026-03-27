@@ -82,6 +82,8 @@ char last_key = 0;
 
 #define KEY_CTRL -32
 #define KEY_ENTER 13
+#define KEY_BACKSPACE 8
+#define KEY_DELETE 127
 
 int gfx_on_key(char key, int down) {
 
@@ -117,6 +119,12 @@ int gfx_on_key(char key, int down) {
       return 0;
     case KEY_ENTER:
       gfxt_on_key('\n');
+      return 0;
+    case KEY_BACKSPACE:
+      gfxt_on_key('\b');
+      return 0;
+    case KEY_DELETE:
+      gfxt_on_key('\x7f');
       return 0;
   }
 

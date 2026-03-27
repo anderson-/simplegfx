@@ -104,7 +104,7 @@ void update_xy(char c, int *x, int *y, int check_scroll) {
     if (check_scroll && first_line_end == 0) first_line_end = current_char + 1;
   } else if (c == '\r') {
     *x = 0;
-  } else if (c == '\b') {
+  } else if (c == '\b' || c == '\x7f') {
     (*x)--;
   } else {
     (*x)++;
@@ -165,6 +165,62 @@ void gfxt_putchar(char c) {
   ansi_debug_char(c);
   if (action == NON_ANSI_CHAR) {
     update_xy(c, &putchar_x, &putchar_y, 1);
+    if (c == '\b') {
+      if (draw_cursor > input_start) {
+        for (int i = draw_cursor; i < cursor; i++) {
+          buffer[i - 1] = buffer[i];
+        }
+        buffer[cursor - 1] = '\0';
+        cursor--;
+        draw_cursor--;
+      }
+      return;
+    } else if (c == '\x7f') {
+      if (draw_cursor < cursor) {
+        for (int i = draw_cursor; i < cursor - 1; i++) {
+          buffer[i] = buffer[i + 1];
+        }
+        buffer[cursor - 1] = '\0';
+        cursor--;
+        draw_cursor--;
+      }
+      return;
+    } else if (c == '\n') {
+      if (draw_cursor != cursor) {
+        draw_cursor = cursor;
+      }
+    } else if (c == '\t') {
+      if (cursor == input_start) {
+        return;
+      }
+      int prefix = 0;
+      int id = -1;
+      for (int i = 0; i < gfxt_cmd_registry_len; i++) {
+        if (strncmp(buffer + input_start, gfxt_cmd_registry[i].name, strlen(buffer + input_start)) == 0) {
+          prefix++;
+          id = i;
+        }
+      }
+      if (prefix == 1) {
+        memset(buffer + cursor, ' ', cursor - input_start);
+        memcpy(buffer + input_start, gfxt_cmd_registry[id].name, strlen(gfxt_cmd_registry[id].name));
+        cursor = input_start + strlen(gfxt_cmd_registry[id].name);
+        draw_cursor = cursor;
+      } else if (prefix > 1) {
+        gfxt_printf("\n");
+        int start = input_start;
+        int len = strlen(buffer + start);
+        for (int i = 0; i < gfxt_cmd_registry_len; i++) {
+          if (memcmp(buffer + start, gfxt_cmd_registry[i].name, len - 1) == 0) {
+            printf("%s\n", gfxt_cmd_registry[i].name);
+            gfxt_printf("  %s", gfxt_cmd_registry[i].name);
+          }
+        }
+        gfxt_printf("\n");
+        prompt();
+      }
+      return;
+    }
     if (cursor == draw_cursor) {
       current_char = cursor;
       buffer[cursor] = c;

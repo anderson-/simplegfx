@@ -77,7 +77,6 @@ void prompt() {
   input_start = cursor;
   draw_cursor = cursor;
   history_index = -1;
-  printf("input_start: %d\n", input_start);
 }
 
 void gfxt_init(int w_chars, int h_chars, const char* (*_prompt_fn)(void), int (*_eval_fn)(const char*), void (*_scroll_fn)(const char*), void (*_history_push_fn)(const char*), const char* (*_history_prev_fn)(int)) {
@@ -140,7 +139,6 @@ void gfxt_putchar(char c) {
     cursor -= first_line_end;
     current_char -= first_line_end;
     input_start -= first_line_end;
-    printf("input_start: %d\n", input_start);
     if (input_start < 0) input_start = 0;
     scroll = 0;
     ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
@@ -167,22 +165,36 @@ void gfxt_putchar(char c) {
   ansi_debug_char(c);
   if (action == NON_ANSI_CHAR) {
     update_xy(c, &putchar_x, &putchar_y, 1);
-    current_char = cursor;
-    buffer[cursor] = c;
-    cursor++;
-    draw_cursor++;
+    if (cursor == draw_cursor) {
+      current_char = cursor;
+      buffer[cursor] = c;
+      cursor++;
+      draw_cursor++;
+    } else {
+      for (int i = cursor; i > draw_cursor; i--) {
+        buffer[i] = buffer[i - 1];
+      }
+      buffer[draw_cursor] = c;
+      cursor++;
+      draw_cursor++;
+    }
   } else if (action > 0) {
     switch (action) {
       case ANSI_COLOR:
-        buffer[cursor++] = '\x1b';
-        buffer[cursor++] = '[';
-        for (int i = 0; i < putchar_ansi_param_count; i++) {
-          cursor += sprintf(buffer + cursor, "%d", putchar_ansi_params[i]);
-          if (i < putchar_ansi_param_count - 1) {
-            buffer[cursor++] = ';';
+        {
+          int shift = cursor;
+          buffer[cursor++] = '\x1b';
+          buffer[cursor++] = '[';
+          for (int i = 0; i < putchar_ansi_param_count; i++) {
+            cursor += sprintf(buffer + cursor, "%d", putchar_ansi_params[i]);
+            if (i < putchar_ansi_param_count - 1) {
+              buffer[cursor++] = ';';
+            }
           }
+          buffer[cursor++] = 'm';
+          shift = cursor - shift;
+          draw_cursor += shift;
         }
-        buffer[cursor++] = 'm';
         break;
       case ANSI_CURSOR_UP:
         // Handle cursor up
@@ -191,11 +203,9 @@ void gfxt_putchar(char c) {
         // Handle cursor down
         break;
       case ANSI_CURSOR_RIGHT:
-        printf("cursor right\n");
         if (draw_cursor < cursor) draw_cursor++;
         break;
       case ANSI_CURSOR_LEFT:
-        printf("cursor left\n");
         if (draw_cursor > input_start) draw_cursor--;
         break;
       case ANSI_CURSOR_POS:
@@ -325,12 +335,10 @@ void gfxt_draw(int x, int y, int size) {
   gfx_fill_rect(x, y, fwidth * width, fheight * height);
   int i = 0;
   char c = buffer[i];
-  printf("----\n");
   while (1) {
     c = gfxt_process_char(c);
     int px = x + pos_x * fwidth;
     int py = y + pos_y * fheight;
-    printf("x:%d y:%d c:%d | %d %d %d \n", pos_x, pos_y, c, i, input_start, draw_cursor);
     if (c) {
       ansi_set_color(bg_color);
       gfx_fill_rect(px, py, fwidth, fheight);
@@ -361,7 +369,6 @@ void gfxt_draw(int x, int y, int size) {
     int py = y + pos_y * fheight;
     gfx_fill_rect(px, py, fwidth, fheight);
   }
-  printf("----\n");
   frame++;
 }
 

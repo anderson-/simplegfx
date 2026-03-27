@@ -5,6 +5,50 @@
 #include "ext/term/simpleterm.h"
 #include "ext/term/stdcmds.h"
 
+#define HISTORY_SIZE 50
+
+static char* history[HISTORY_SIZE];
+static int history_count = 0;
+static int history_start = 0;
+
+void history_push_fn(const char* cmd) {
+  printf("history_push_fn called with cmd: %s [%d]\n", cmd, strlen(cmd));
+  if (!cmd || strlen(cmd) == 0) return;
+
+  // Don't add duplicates to the most recent command
+  if (history_count > 0) {
+    int last_idx = (history_start + history_count - 1) % HISTORY_SIZE;
+    if (strcmp(history[last_idx], cmd) == 0) return;
+  }
+
+  // Free memory if we're overwriting an old entry
+  if (history_count >= HISTORY_SIZE) {
+    free(history[history_start]);
+    history_start = (history_start + 1) % HISTORY_SIZE;
+    history_count--;
+  }
+
+  // Add new command to history
+  int idx = (history_start + history_count) % HISTORY_SIZE;
+  history[idx] = strdup(cmd);
+  history_count++;
+}
+
+const char* history_prev_fn(int index) {
+  printf("history_prev_fn called with index: %d, history_count: %d\n", index, history_count);
+  if (index < 0 || index >= history_count) {
+    printf("returning NULL - index out of range\n");
+    return NULL;
+  }
+
+  // Index 0 = most recent, Index 1 = second most recent, etc.
+  int idx = (history_start + history_count - 1 - index) % HISTORY_SIZE;
+  printf("calculated idx: %d, history_start: %d\n", idx, history_start);
+  printf("history[idx] pointer: %p\n", (void*)history[idx]);
+  printf("returning history[%d]: '%s'\n", idx, history[idx] ? history[idx] : "NULL");
+  return history[idx];
+}
+
 const char* get_prompt(void) {
   return "\x1b[32msimplegfx\x1b[0m:\x1b[34m~\x1b[0m$ ";
 }
@@ -21,7 +65,7 @@ void gfx_app(int init) {
   int h = WINDOW_HEIGHT / fh;
   x = (WINDOW_WIDTH - w * fw) / 2;
   y = (WINDOW_HEIGHT - h * fh) / 2;
-  gfxt_init(w, h, get_prompt, NULL, NULL, NULL, NULL);
+  gfxt_init(w, h, get_prompt, NULL, NULL, history_push_fn, history_prev_fn);
   gfxt_std_cmd_reg();
 }
 

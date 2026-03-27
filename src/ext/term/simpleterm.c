@@ -197,10 +197,39 @@ void gfxt_putchar(char c) {
         }
         break;
       case ANSI_CURSOR_UP:
-        // Handle cursor up
+        if (history_prev_fn) {
+          history_index++;
+          const char* cmd = history_prev_fn(history_index);
+          if (cmd) {
+            int len = strlen(cmd);
+            memset(buffer + input_start, ' ', cursor - input_start);
+            memcpy(buffer + input_start, cmd, len);
+            cursor = input_start + len;
+            draw_cursor = cursor;
+          } else {
+            history_index--;
+          }
+        }
         break;
       case ANSI_CURSOR_DOWN:
-        // Handle cursor down
+        if (history_index > 0) {
+          history_index--;
+          if (history_prev_fn) {
+            const char* cmd = history_prev_fn(history_index);
+            if (cmd) {
+              int len = strlen(cmd);
+              memset(buffer + input_start, ' ', cursor - input_start);
+              memcpy(buffer + input_start, cmd, len);
+              cursor = input_start + len;
+              draw_cursor = cursor;
+            }
+          }
+        } else {
+          memset(buffer + input_start, ' ', cursor - input_start);
+          history_index = -1;
+          cursor = input_start;
+          draw_cursor = cursor;
+        }
         break;
       case ANSI_CURSOR_RIGHT:
         if (draw_cursor < cursor) draw_cursor++;
@@ -212,10 +241,31 @@ void gfxt_putchar(char c) {
         // Handle cursor position
         break;
       case ANSI_CLEAR_SCREEN:
-        // Handle clear screen
+        switch (putchar_ansi_params[0]) {
+          case 2:
+            memset(buffer, 0, buffer_size);
+            cursor = 0;
+            draw_cursor = 0;
+            input_start = 0;
+            first_line_end = 0;
+            putchar_x = 0;
+            putchar_y = 0;
+            current_char = 0;
+            break;
+        }
         break;
       case ANSI_CLEAR_LINE:
-        // Handle clear line
+        switch (putchar_ansi_params[0]) {
+          case 0:
+            memset(buffer + draw_cursor, ' ', cursor - draw_cursor);
+            break;
+          case 1:
+            memset(buffer + input_start, ' ', draw_cursor - input_start);
+            break;
+          case 2:
+            memset(buffer + input_start, ' ', first_line_end - input_start);
+            break;
+        }
         break;
     }
     ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
@@ -250,7 +300,8 @@ int gfxt_printf(const char *format, ...) {
 }
 
 void gfxt_clear() {
-  gfxt_printf("\x1b[l");
+  gfxt_printf("\x1b[2J");
+  prompt();
 }
 
 char gfxt_getchar() {
@@ -347,7 +398,7 @@ void gfxt_draw(int x, int y, int size) {
         gfx_draw_char(c, px, py, size, f.data, f.width, f.height);
       }
     }
-    if (i >= input_start && i <= cursor) {
+    if (i >= input_start && i < cursor) {
       ansi_set_color(3);
       int px = x + pos_x * fwidth;
       int py = y + pos_y * fheight;
@@ -377,6 +428,11 @@ void gfxt_on_key(uint8_t key) {
 
   if (!gfxt_stdin) {
     gfxt_stdin = key;
+    return;
+  }
+
+  if (key ==  'j') {
+    gfxt_clear();
     return;
   }
 

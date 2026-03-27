@@ -57,9 +57,9 @@ int ansi_feed(char c, int *state, int *param_count, int *params) {
         return ANSI_NONE;
       } else {
         int action = ANSI_NONE;
+        (*param_count)++;
         switch (c) {
           case 'm':
-            (*param_count)++;
             action = ANSI_COLOR;
             break;
           case 'A':
@@ -82,10 +82,6 @@ int ansi_feed(char c, int *state, int *param_count, int *params) {
             break;
           case 'K':
             action = ANSI_CLEAR_LINE;
-            break;
-          case 'l':
-          case 'L':
-            action = ANSI_CLEAR_SCREEN;
             break;
           default:
             printf("unknown %d\n", c);

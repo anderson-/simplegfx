@@ -1,5 +1,6 @@
 #include "ansiutils.h"
 #include <stdint.h>
+#include <stdio.h>
 
 static uint16_t current_theme = 0;
 
@@ -58,6 +59,7 @@ int ansi_feed(char c, int *state, int *param_count, int *params) {
         int action = ANSI_NONE;
         switch (c) {
           case 'm':
+            (*param_count)++;
             action = ANSI_COLOR;
             break;
           case 'A':
@@ -85,9 +87,23 @@ int ansi_feed(char c, int *state, int *param_count, int *params) {
           case 'L':
             action = ANSI_CLEAR_SCREEN;
             break;
+          default:
+            printf("unknown %d\n", c);
+            ansi_reset(state, param_count, params);
+            break;
         }
         return action;
       }
   }
   return ANSI_NONE;
+}
+
+void ansi_debug_char(char c) {
+  if (c >= 32 && c <= 126) {
+    printf("%c", c);
+  } else if (c == '\n') {
+    printf("\n");
+  } else {
+    printf("[%02X]", c);
+  }
 }

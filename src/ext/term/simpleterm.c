@@ -41,6 +41,8 @@ volatile char gfxt_stdin = 1;
 int cursor_color = 7;
 int frame = 0;
 int scroll = 0;
+static int draw_cursor = 0;
+static int history_index = -1;
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
   if (gfxt_cmd_registry_len < MAX_COMMANDS) {
@@ -73,6 +75,9 @@ int gfxt_run_cmd(const char* line) {
 void prompt() {
   gfxt_printf("%s", prompt_fn());
   input_start = cursor;
+  draw_cursor = cursor;
+  history_index = -1;
+  printf("input_start: %d\n", input_start);
 }
 
 void gfxt_init(int w_chars, int h_chars, const char* (*_prompt_fn)(void), int (*_eval_fn)(const char*), void (*_scroll_fn)(const char*), void (*_history_push_fn)(const char*), const char* (*_history_prev_fn)(int)) {
@@ -135,6 +140,7 @@ void gfxt_putchar(char c) {
     cursor -= first_line_end;
     current_char -= first_line_end;
     input_start -= first_line_end;
+    printf("input_start: %d\n", input_start);
     if (input_start < 0) input_start = 0;
     scroll = 0;
     ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
@@ -157,14 +163,53 @@ void gfxt_putchar(char c) {
     }
   }
   int action = ansi_feed(c, &putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
+
+  ansi_debug_char(c);
   if (action == NON_ANSI_CHAR) {
     update_xy(c, &putchar_x, &putchar_y, 1);
     current_char = cursor;
+    buffer[cursor] = c;
+    cursor++;
+    draw_cursor++;
   } else if (action > 0) {
+    switch (action) {
+      case ANSI_COLOR:
+        buffer[cursor++] = '\x1b';
+        buffer[cursor++] = '[';
+        for (int i = 0; i < putchar_ansi_param_count; i++) {
+          cursor += sprintf(buffer + cursor, "%d", putchar_ansi_params[i]);
+          if (i < putchar_ansi_param_count - 1) {
+            buffer[cursor++] = ';';
+          }
+        }
+        buffer[cursor++] = 'm';
+        break;
+      case ANSI_CURSOR_UP:
+        // Handle cursor up
+        break;
+      case ANSI_CURSOR_DOWN:
+        // Handle cursor down
+        break;
+      case ANSI_CURSOR_RIGHT:
+        printf("cursor right\n");
+        if (draw_cursor < cursor) draw_cursor++;
+        break;
+      case ANSI_CURSOR_LEFT:
+        printf("cursor left\n");
+        if (draw_cursor > input_start) draw_cursor--;
+        break;
+      case ANSI_CURSOR_POS:
+        // Handle cursor position
+        break;
+      case ANSI_CLEAR_SCREEN:
+        // Handle clear screen
+        break;
+      case ANSI_CLEAR_LINE:
+        // Handle clear line
+        break;
+    }
     ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
   }
-  buffer[cursor] = c;
-  cursor++;
   //buffer[cursor] = '\0';
 }
 
@@ -233,50 +278,31 @@ int gfxt_scanf(const char *format, ...) {
 char gfxt_process_char(char c) {
   int action = ansi_feed(c, &ansi_state, &ansi_param_count, ansi_params);
   if (action == NON_ANSI_CHAR) {
-    update_xy(c, &pos_x, &pos_y, 0);
     return c;
   } else if (action > 0) {
-    switch (action) {
-      case ANSI_COLOR:
-        for (int i = 0; i <= ansi_param_count; i++) {
-          if (ansi_params[i] == 0) {
-            fg_color = default_fg_color;
-            bg_color = default_bg_color;
-          } else if (ansi_params[i] == 1) {
-            // Bold/bright flag - not implemented
-          } else if (ansi_params[i] >= 30 && ansi_params[i] <= 37) {
-            uint8_t fg = ansi_params[i] - 30;
-            fg_color = fg;
-          } else if (ansi_params[i] >= 90 && ansi_params[i] <= 97) {
-            uint8_t fg = ansi_params[i] - 90 + 8; // Bright colors 8-15
-            fg_color = fg;
-          } else if (ansi_params[i] >= 40 && ansi_params[i] <= 47) {
-            uint8_t bg = ansi_params[i] - 40;
-            bg_color = bg;
-          } else if (ansi_params[i] >= 100 && ansi_params[i] <= 107) {
-            uint8_t bg = ansi_params[i] - 100 + 8; // Bright backgrounds 8-15
-            bg_color = bg;
-          }
+    if (action == ANSI_COLOR) {
+      for (int i = 0; i < ansi_param_count; i++) {
+        if (ansi_params[i] == 0) {
+          fg_color = default_fg_color;
+          bg_color = default_bg_color;
+        } else if (ansi_params[i] == 1) {
+          // Bold/bright flag - not implemented
+        } else if (ansi_params[i] >= 30 && ansi_params[i] <= 37) {
+          uint8_t fg = ansi_params[i] - 30;
+          fg_color = fg;
+        } else if (ansi_params[i] >= 90 && ansi_params[i] <= 97) {
+          uint8_t fg = ansi_params[i] - 90 + 8; // Bright colors 8-15
+          fg_color = fg;
+        } else if (ansi_params[i] >= 40 && ansi_params[i] <= 47) {
+          uint8_t bg = ansi_params[i] - 40;
+          bg_color = bg;
+        } else if (ansi_params[i] >= 100 && ansi_params[i] <= 107) {
+          uint8_t bg = ansi_params[i] - 100 + 8; // Bright backgrounds 8-15
+          bg_color = bg;
         }
-        break;
-      case ANSI_CURSOR_LEFT:
-        cursor--;
-        break;
-      case ANSI_CURSOR_RIGHT:
-        cursor++;
-        break;
-      case ANSI_CURSOR_UP:
-        //txt_get_cursor(NULL, &height);
-        //txt_set_cursor(-1, height - (ansi_params[0] ? ansi_params[0] : 1));
-        break;
-
-      case ANSI_CURSOR_POS:
-        //txt_set_cursor(ansi_params[1] - 1, ansi_params[0] - 1);
-        break;
-
-      case ANSI_CLEAR_SCREEN:
-        //txt_clear();
-        break;
+      }
+    } else {
+      printf("not implemented: %d\n", action);
     }
     ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
   }
@@ -299,10 +325,12 @@ void gfxt_draw(int x, int y, int size) {
   gfx_fill_rect(x, y, fwidth * width, fheight * height);
   int i = 0;
   char c = buffer[i];
+  printf("----\n");
   while (1) {
+    c = gfxt_process_char(c);
     int px = x + pos_x * fwidth;
     int py = y + pos_y * fheight;
-    c = gfxt_process_char(c);
+    printf("x:%d y:%d c:%d | %d %d %d \n", pos_x, pos_y, c, i, input_start, draw_cursor);
     if (c) {
       ansi_set_color(bg_color);
       gfx_fill_rect(px, py, fwidth, fheight);
@@ -311,16 +339,29 @@ void gfxt_draw(int x, int y, int size) {
         gfx_draw_char(c, px, py, size, f.data, f.width, f.height);
       }
     }
-    i++;
-    c = buffer[i];
-    if (cursor == i && frame % 20 < 10) {
+    if (i >= input_start && i <= cursor) {
+      ansi_set_color(3);
+      int px = x + pos_x * fwidth;
+      int py = y + pos_y * fheight;
+      gfx_fill_rect(px, py, fwidth, size);
+    }
+    if (draw_cursor == i && frame % 20 < 10) {
       ansi_set_color(cursor_color);
       int px = x + pos_x * fwidth;
       int py = y + pos_y * fheight;
       gfx_fill_rect(px, py, fwidth, fheight);
     }
+    if (c) update_xy(c, &pos_x, &pos_y, 0);
+    c = buffer[++i];
     if (!c) break;
   }
+  if (draw_cursor == i && frame % 20 < 10) {
+    ansi_set_color(cursor_color);
+    int px = x + pos_x * fwidth;
+    int py = y + pos_y * fheight;
+    gfx_fill_rect(px, py, fwidth, fheight);
+  }
+  printf("----\n");
   frame++;
 }
 

@@ -265,6 +265,7 @@ void ansi_set_theme(int theme);
 void ansi_set_color(int color);
 void ansi_reset(int *state, int *param_count, int *params);
 int ansi_feed(char c, int *state, int *param_count, int *params);
+void ansi_debug_char(char c);
 
 #ifdef __cplusplus
 }

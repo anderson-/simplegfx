@@ -12,7 +12,6 @@ static int history_count = 0;
 static int history_start = 0;
 
 void history_push_fn(const char* cmd) {
-  printf("history_push_fn called with cmd: %s [%d]\n", cmd, strlen(cmd));
   if (!cmd || strlen(cmd) == 0) return;
 
   // Don't add duplicates to the most recent command
@@ -50,12 +49,12 @@ const char* history_prev_fn(int index) {
 }
 
 const char* get_prompt(void) {
-  return "\x1b[32msimplegfx\x1b[0m:\x1b[34m~\x1b[0m$ ";
+  return "\x1b[32msimplegfx\x1b[m:\x1b[34m~\x1b[m$ ";
 }
 
 int x = 0;
 int y = 0;
-int fsize = 4;
+int fsize = 3;
 
 void gfx_app(int init) {
   font_t * f = gfx_get_font();

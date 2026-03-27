@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-#define TERM_RESET      "\033[0m"
+#define TERM_RESET      "\033[m"
 #define TERM_BOLD       "\033[1m"
 #define TERM_BLACK      "\033[30m"
 #define TERM_RED        "\033[31m"

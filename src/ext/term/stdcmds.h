@@ -149,13 +149,13 @@ int cmd_palette(const char *args) {
     for (int fg = 30; fg <= 37; fg++) {
       gfxt_printf("\x1b[%dm%d ", fg, fg);
     }
-    gfxt_printf("\x1b[0m\n");
+    gfxt_printf("\x1b[m\n");
   }
-  gfxt_printf("40 \x1b[0m");
+  gfxt_printf("40 \x1b[m");
   for (int i = 90; i <= 97; i++) {
     gfxt_printf("\x1b[%dm%d ", i, i);
   }
-  gfxt_printf("\x1b[0m\n");
+  gfxt_printf("\x1b[m\n");
   return 0;
 }
 

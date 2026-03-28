@@ -14,12 +14,13 @@ SOURCES  = $(filter-out $(BACKENDS)/%, $(wildcard $(LIBS)/*.c)) $(wildcard $(LIB
 CFLAGS   = -std=c99 -Wall -g -Os -flto ${INCLUDES} ${XTRA_CFLAGS}
 
 EXAMPLES := $(patsubst examples/%.c,%,$(wildcard examples/*.c))
-PLATFORMS := sdl sdl1.2
+PLATFORMS := sdl sdl1.2 macos
 
 # Platform flags
 PLATFORM_FLAGS_sdl = -lSDL2 -DGFX_SDL2 src/backends/gfx_sdl.c
 PLATFORM_FLAGS_sdl1.2 = -lSDL -DGFX_SDL src/backends/gfx_sdl.c
 PLATFORM_FLAGS_rg35xx = -lSDL -lasound -DGFX_SDL src/backends/gfx_sdl.c
+PLATFORM_FLAGS_macos = -framework Cocoa -framework AudioToolbox -lobjc -DGFX_MACOS src/backends/gfx_macos.m
 
 IMAGE = nfriedly/miyoo-toolchain:steward
 DOCKER = docker run --platform linux/amd64 --rm -it \

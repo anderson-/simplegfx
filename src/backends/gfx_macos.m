@@ -253,6 +253,7 @@ static uint64_t mono_ns(void) {
   if (gfx_draw(g_fps)) {
     [g_view setNeedsDisplay:YES];
     [g_view displayIfNeeded];
+    gfx_clear();
   }
 
   if (_shouldExit) {

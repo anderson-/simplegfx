@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <simplegfx.h>
+#include "simplegfx.h"
 
 #define RECT_COUNT 1000
 
@@ -57,7 +57,7 @@ void gfx_process_data(int compute_time) {
   compute_loops++;
 }
 
-void gfx_draw(float fps) {
+int gfx_draw(float fps) {
   for (int i = 0; i < RECT_COUNT; i++) {
     gfx_set_color(rand() % 30 + 10, rand() % (menu ? 60 : 30) + 10, rand() % 90 + 10);
     gfx_fill_rect(rand() % WINDOW_WIDTH, rand() % WINDOW_HEIGHT, rand() % 50 + 10, rand() % 50 + 10);
@@ -100,6 +100,7 @@ void gfx_draw(float fps) {
   sprintf(text, "compute %d | buffer %.1fk", compute_loops, printf_len/1000.0);
   gfx_text(text, 480, 18, 1);
   compute_loops = 0;
+  return 1;
 }
 
 int gfx_on_key(char key, int down) {

@@ -66,21 +66,21 @@ int gfx_draw(float fps) {
   int y;
   if (printf_len == 0) {
     gfx_set_color(255, 0, 255);
-    y = gfx_font_table(10, 50, 1);
+    y = gfx_font_table(10, 40, 1);
     gfx_set_color(255, 255, 0);
-    y = gfx_font_table(10, y + 10, 2);
+    y = gfx_font_table(10, y + 2, 2);
     gfx_set_color(0, 255, 255);
-    y = gfx_font_table(10, y + 10, 3);
+    y = gfx_font_table(10, y + 2, 3);
   } else if (!mb) {
     gfx_set_color(255, 0, 255);
-    y = gfx_text(printf_buf, 10, 50, 1);
+    y = gfx_text(printf_buf, 10, 40, 1);
     gfx_set_color(255, 255, 0);
-    y = gfx_text(printf_buf, 10, y + 10, 2);
+    y = gfx_text(printf_buf, 10, y + 2, 2);
     gfx_set_color(0, 255, 255);
-    y = gfx_text(printf_buf, 10, y + 10, 3);
+    y = gfx_text(printf_buf, 10, y + 2, 3);
   } else {
     gfx_set_color(57, 255, 20);
-    y = gfx_text(printf_buf, 8, 50, 1);
+    y = gfx_text(printf_buf, 8, 40, 1);
   }
 
   gfx_set_color(255, 255, 255);

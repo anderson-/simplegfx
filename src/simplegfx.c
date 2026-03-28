@@ -57,7 +57,6 @@ int gfx_text(const char * text, int x, int y, int size) {
   font_t f = *_font;
   int fheight = f.height;
   int fwidth = f.width;
-  y += fheight * size;
   int cx = x;
   int cy = y;
   for (int i = 0; i < len; i++) {

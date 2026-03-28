@@ -19,6 +19,43 @@ uint16_t simplehash(const char *str) {
   return hash;
 }
 
+int cmd_sleep(const char *args) {
+  double s = 0.0;
+
+  int n = sscanf(args, "%lf", &s);
+
+  if (n == 1 && s > 0.0) {
+    long long target_us = (long long)(s * 1000000.0);
+    struct timeval start;
+    gettimeofday(&start, NULL);
+    double ema_us = 0.0;
+    const double alpha = 0.2;
+    int first_iter = 1;
+    struct timeval prev;
+    gettimeofday(&prev, NULL);
+    while (1) {
+      struct timeval now;
+      gettimeofday(&now, NULL);
+      long long elapsed_us = (long long)(now.tv_sec  - start.tv_sec)  * 1000000LL
+                           + (long long)(now.tv_usec - start.tv_usec);
+      if (elapsed_us >= target_us) break;
+      long long iter_us = (long long)(now.tv_sec  - prev.tv_sec)  * 1000000LL
+                        + (long long)(now.tv_usec - prev.tv_usec);
+      if (first_iter) {
+        ema_us = (double)iter_us;
+        first_iter = 0;
+      } else if (iter_us > 0) {
+        ema_us = alpha * (double)iter_us + (1.0 - alpha) * ema_us;
+      }
+      prev = now;
+      if (gfx_yeld) gfx_yeld();
+    }
+  } else {
+    gfxt_println(TERM_RED "usage: sleep <seconds>" TERM_RESET);
+  }
+  return 0;
+}
+
 int cmd_clear(const char *args) {
   gfxt_clear();
   return 0;
@@ -222,6 +259,7 @@ int cmd_help(const char *args) {
 }
 
 void gfxt_std_cmd_reg() {
+  gfxt_register_cmd("sleep", "sleep for n seconds", cmd_sleep);
   gfxt_register_cmd("clear", "clear screen", cmd_clear);
   gfxt_register_cmd("echo", "print text", cmd_echo);
   gfxt_register_cmd("error", "print error message", cmd_error);

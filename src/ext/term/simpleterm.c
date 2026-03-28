@@ -46,7 +46,8 @@ int frame = 0;
 int scroll = 0;
 static int draw_cursor = 0;
 static int history_index = -1;
-static int busy = 10;
+static int busy = 0;
+static int change = 0;
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
   if (gfxt_cmd_registry_len < MAX_COMMANDS) {
@@ -129,6 +130,7 @@ void update_xy(char c, int *x, int *y, int check_scroll) {
 }
 
 void gfxt_putchar(char c) {
+  change = 2;
   if (cursor + 64 >= buffer_size) {
     buffer_size += 64;
     buffer = realloc(buffer, buffer_size);
@@ -381,7 +383,6 @@ int gfxt_printf(const char *format, ...) {
 
 void gfxt_clear() {
   gfxt_printf("\x1b[2J");
-  prompt();
 }
 
 char gfxt_getchar() {
@@ -454,8 +455,17 @@ void gfxt_set_theme(int theme) {
   ansi_set_theme(theme);
 }
 
-void gfxt_draw(int x, int y, int size) {
-  if (!initialized) return;
+int gfxt_draw(int x, int y, int size) {
+  if (!initialized) return 0;
+  frame++;
+  if (frame % 10 == 1) {
+    change = 2;
+  } else if (busy > 5) {
+    change = 2;
+  }
+  if (!change) {
+    return 0;
+  }
   pos_x = 0;
   pos_y = 0;
   ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
@@ -512,7 +522,7 @@ void gfxt_draw(int x, int y, int size) {
   }
   if (draw_cursor == i) {
     if (busy > 5) {
-      int spin_idx = frame % 4;
+      int spin_idx = (frame/2) % 4;
       char spin_char = spinner[spin_idx];
       ansi_set_color(8);
       gfx_draw_char(spin_char, x + pos_x * fwidth, y + pos_y * fheight, size, f.data, f.width, f.height);
@@ -523,11 +533,13 @@ void gfxt_draw(int x, int y, int size) {
       gfx_fill_rect(px, py, fwidth, fheight);
     }
   }
-  frame++;
+  change--;
+  return 1;
 }
 
 void gfxt_on_key(uint8_t key) {
   if (!initialized) return;
+  change = 1;
 
   if (!gfxt_stdin) {
     gfxt_stdin = key;

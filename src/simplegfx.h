@@ -100,7 +100,7 @@ extern double volume;
 
 // Callbacks to be implemented by the user app
 extern void gfx_app(int init);
-extern void gfx_draw(float fps);
+extern int gfx_draw(float fps);
 extern int gfx_on_key(char key, int down);
 extern void gfx_process_data(int compute_time);
 

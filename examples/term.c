@@ -72,14 +72,19 @@ void gfx_app(int init) {
   gfxt_std_cmd_reg();
 }
 
-void gfx_draw(float fps) {
-  gfxt_draw(x, y, fsize);
+int gfx_draw(float fps) {
+  if(!gfxt_draw(x, y, fsize)) {
+    return 0;
+  }
+
 
   // Show FPS in corner
   gfx_set_color(100, 100, 100);
   char fps_text[32];
   sprintf(fps_text, "%.1f fps", fps);
   gfx_text(fps_text, 2, 2, 1);
+
+  return 1;
 }
 
 char last_key = 0;

@@ -250,11 +250,10 @@ static uint64_t mono_ns(void) {
     g_fps = 0.1f * cur + 0.9f * g_fps;
   }
 
-  gfx_clear();
-  gfx_draw(g_fps);
-
-  [g_view setNeedsDisplay:YES];
-  [g_view displayIfNeeded];
+  if (gfx_draw(g_fps)) {
+    [g_view setNeedsDisplay:YES];
+    [g_view displayIfNeeded];
+  }
 
   if (_shouldExit) {
     [NSApp terminate:nil];

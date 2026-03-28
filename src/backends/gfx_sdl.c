@@ -228,13 +228,13 @@ static void loop() {
       }
     }
   }
-  gfx_clear();
-  gfx_draw(fps);
+  if (gfx_draw(fps)) {
 #ifdef GFX_SDL2
   SDL_RenderPresent(renderer);
 #else
   SDL_Flip(screen);
 #endif
+  }
 
   busytime = SDL_GetTicks() - start;
   if (delay > busytime) {

@@ -83,6 +83,12 @@ int ansi_feed(char c, int *state, int *param_count, int *params) {
           case 'K':
             action = ANSI_CLEAR_LINE;
             break;
+          case 'S':
+            action = ANSI_SCROLL_UP;
+            break;
+          case 'T':
+            action = ANSI_SCROLL_DOWN;
+            break;
           default:
             printf("unknown %d\n", c);
             ansi_reset(state, param_count, params);

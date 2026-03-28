@@ -7,19 +7,22 @@
 
 static const char* (*prompt_fn)() = NULL;
 static int (*eval_fn)(const char*) = NULL;
-static void (*scroll_fn)(const char*) = NULL;
+static void (*scroll_push_fn)(const char*, int) = NULL;
+static const char* (*scroll_prev_fn)(int) = NULL;
 static void (*history_push_fn)(const char*) = NULL;
 static const char* (*history_prev_fn)(int) = NULL;
 
 cmd_entry_t gfxt_cmd_registry[MAX_COMMANDS];
 int gfxt_cmd_registry_len = 0;
 
+static const char spinner[] = "\xdc\xdd\xdf\xde";
 static int width = 40;
 static int height = 12;
 static int buffer_size = 0;
 static int initialized = 0;
 static char * buffer = NULL;
 static int first_line_end = 0;
+static int last_line_start = 0;
 static int input_start = 0;
 static int cursor = 0;
 static int current_char = 0;
@@ -43,6 +46,7 @@ int frame = 0;
 int scroll = 0;
 static int draw_cursor = 0;
 static int history_index = -1;
+static int busy = 10;
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
   if (gfxt_cmd_registry_len < MAX_COMMANDS) {
@@ -79,12 +83,13 @@ void prompt() {
   history_index = -1;
 }
 
-void gfxt_init(int w_chars, int h_chars, const char* (*_prompt_fn)(void), int (*_eval_fn)(const char*), void (*_scroll_fn)(const char*), void (*_history_push_fn)(const char*), const char* (*_history_prev_fn)(int)) {
+void gfxt_init(int w_chars, int h_chars, const char* (*_prompt_fn)(void), int (*_eval_fn)(const char*), void (*_scroll_push_fn)(const char*, int), const char* (*_scroll_prev_fn)(int), void (*_history_push_fn)(const char*), const char* (*_history_prev_fn)(int)) {
   width = w_chars;
   height = h_chars;
   eval_fn = _eval_fn ? _eval_fn : gfxt_run_cmd;
   prompt_fn = _prompt_fn;
-  scroll_fn = _scroll_fn;
+  scroll_push_fn = _scroll_push_fn;
+  scroll_prev_fn = _scroll_prev_fn;
   history_push_fn = _history_push_fn;
   history_prev_fn = _history_prev_fn;
   buffer_size = width * height * 2;
@@ -102,6 +107,7 @@ void update_xy(char c, int *x, int *y, int check_scroll) {
     *x = 0;
     (*y)++;
     if (check_scroll && first_line_end == 0) first_line_end = current_char + 1;
+    if (check_scroll) last_line_start = current_char + 1;
   } else if (c == '\r') {
     *x = 0;
   } else if (c == '\b' || c == '\x7f') {
@@ -115,6 +121,7 @@ void update_xy(char c, int *x, int *y, int check_scroll) {
     *x = 0;
     (*y)++;
     if (check_scroll && first_line_end == 0) first_line_end = current_char + 1;
+    if (check_scroll) last_line_start = current_char + 1;
   }
   if (check_scroll && ((*x + 1 >= width && *y + 1 >= height) || *y >= height)) {
     scroll = 1;
@@ -132,7 +139,7 @@ void gfxt_putchar(char c) {
     first_line_end++;
     char end = buffer[first_line_end];
     buffer[first_line_end] = '\0';
-    if (scroll_fn) scroll_fn(buffer);
+    if (scroll_push_fn) scroll_push_fn(buffer, -1);
     buffer[first_line_end] = end;
     char * src = buffer + first_line_end;
     char * dst = buffer;
@@ -146,11 +153,14 @@ void gfxt_putchar(char c) {
     draw_cursor -= first_line_end;
     current_char -= first_line_end;
     input_start -= first_line_end;
+    last_line_start -= first_line_end;
     if (input_start < 0) input_start = 0;
+    if (last_line_start < 0) last_line_start = 0;
     scroll = 0;
     ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
     { // reset and rescan
       first_line_end = 0;
+      last_line_start = 0;
       putchar_x = 0;
       putchar_y = 0;
       current_char = 0;
@@ -311,6 +321,7 @@ void gfxt_putchar(char c) {
             draw_cursor = 0;
             input_start = 0;
             first_line_end = 0;
+            last_line_start = 0;
             putchar_x = 0;
             putchar_y = 0;
             current_char = 0;
@@ -329,6 +340,12 @@ void gfxt_putchar(char c) {
             memset(buffer + input_start, ' ', first_line_end - input_start);
             break;
         }
+        break;
+      case ANSI_SCROLL_UP:
+        // Handle scroll up
+        break;
+      case ANSI_SCROLL_DOWN:
+        // Handle scroll down
         break;
     }
     ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
@@ -458,17 +475,33 @@ void gfxt_draw(int x, int y, int size) {
       gfx_fill_rect(px, py, fwidth, fheight);
       if (c != ' ' && c != '\n') {
         ansi_set_color(fg_color);
+        if (busy > 5 && i >= input_start && i < cursor) {
+          ansi_set_color(8);
+        }
         gfx_draw_char(c, px, py, size, f.data, f.width, f.height);
       }
     }
-    if (i >= input_start && i < cursor) {
-      ansi_set_color(3);
-      int px = x + pos_x * fwidth;
-      int py = y + pos_y * fheight;
-      gfx_fill_rect(px, py, fwidth, size);
+    if (1) {
+      if (i >= input_start && i < cursor) {
+        ansi_set_color(3);
+        int px = x + pos_x * fwidth;
+        int py = y + pos_y * fheight;
+        gfx_fill_rect(px, py, fwidth, size);
+      }
+      if (i >= 0 && i < first_line_end) {
+        ansi_set_color(4);
+        int px = x + pos_x * fwidth;
+        int py = y + pos_y * fheight;
+        gfx_fill_rect(px, py + size, fwidth, size);
+      }
+      if (i > last_line_start && i < cursor) {
+        ansi_set_color(5);
+        int px = x + pos_x * fwidth;
+        int py = y + pos_y * fheight;
+        gfx_fill_rect(px, py + size * 2, fwidth, size);
+      }
     }
-    if (draw_cursor == i && frame % 20 < 10) {
-      ansi_set_color(cursor_color);
+    if (draw_cursor == i && frame % 20 < 10 && !(busy > 5)) {
       int px = x + pos_x * fwidth;
       int py = y + pos_y * fheight;
       gfx_fill_rect(px, py, fwidth, fheight);
@@ -477,11 +510,18 @@ void gfxt_draw(int x, int y, int size) {
     c = buffer[++i];
     if (!c) break;
   }
-  if (draw_cursor == i && frame % 20 < 10) {
-    ansi_set_color(cursor_color);
-    int px = x + pos_x * fwidth;
-    int py = y + pos_y * fheight;
-    gfx_fill_rect(px, py, fwidth, fheight);
+  if (draw_cursor == i) {
+    if (busy > 5) {
+      int spin_idx = frame % 4;
+      char spin_char = spinner[spin_idx];
+      ansi_set_color(8);
+      gfx_draw_char(spin_char, x + pos_x * fwidth, y + pos_y * fheight, size, f.data, f.width, f.height);
+    } else if (frame % 20 < 10) {
+      ansi_set_color(cursor_color);
+      int px = x + pos_x * fwidth;
+      int py = y + pos_y * fheight;
+      gfx_fill_rect(px, py, fwidth, fheight);
+    }
   }
   frame++;
 }
@@ -508,4 +548,8 @@ void gfxt_on_key(uint8_t key) {
     eval_fn(input);
     prompt();
   }
+}
+
+void gfxt_set_busy(int _busy) {
+  busy = _busy;
 }

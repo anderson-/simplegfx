@@ -48,8 +48,8 @@ const char* history_prev_fn(int index) {
   return history[idx];
 }
 
-void scroll_fn(const char* line) {
-  printf("scroll: %s\n", line);
+void scroll_fn(const char* line, int scroll) {
+  printf("scroll: %s, scroll: %d\n", line, scroll);
 }
 
 const char* get_prompt(void) {
@@ -68,7 +68,7 @@ void gfx_app(int init) {
   int h = WINDOW_HEIGHT / fh;
   x = (WINDOW_WIDTH - w * fw) / 2;
   y = (WINDOW_HEIGHT - h * fh) / 2;
-  gfxt_init(w, h, get_prompt, NULL, scroll_fn, history_push_fn, history_prev_fn);
+  gfxt_init(w, h, get_prompt, NULL, scroll_fn, NULL, history_push_fn, history_prev_fn);
   gfxt_std_cmd_reg();
 }
 

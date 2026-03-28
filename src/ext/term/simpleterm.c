@@ -50,13 +50,9 @@ static int history_index = -1;
 static int busy = 0;
 static int change = 0;
 static int scroll_back_count = 0;
-// Tracks how many lines were trimmed off the bottom during scroll-down sessions.
-// Content is stored externally via scroll_push_fn/scroll_next_fn; only the cursor
-// and input_start offsets (relative to the trim point) are kept here.
 static int scroll_bottom_depth = 0;
-#define SCROLL_BOTTOM_POS_SIZE 64
-static int scroll_bottom_draw_offsets[SCROLL_BOTTOM_POS_SIZE];
-static int scroll_bottom_input_offsets[SCROLL_BOTTOM_POS_SIZE];
+static int scroll_bottom_draw_offsets[64];
+static int scroll_bottom_input_offsets[64];
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
   if (gfxt_cmd_registry_len < MAX_COMMANDS) {
@@ -159,21 +155,15 @@ static void rescan_buffer() {
   }
 }
 
-// Scroll up by n lines: push first n lines via scroll_push_fn and remove from buffer.
-// If scroll_back_count > 0, the top lines are history lines already in the callback's
-// storage — just discard them without re-pushing.
 static void do_scroll_up(int n) {
   for (int s = 0; s < n; s++) {
     if (!buffer[0] || first_line_end == 0) break;
-    int line_end = first_line_end + 1; // first char of second line
+    int line_end = first_line_end + 1;
     if (scroll_back_count > 0) {
       scroll_back_count--;
-      // Restore bottom content trimmed during the matching scroll-down.
-      // Done BEFORE removing the top line so saved offsets are still valid;
-      // the memmove below shifts all pointers correctly.
       if (scroll_bottom_depth > 0 && scroll_next_fn) {
         scroll_bottom_depth--;
-        int ci = scroll_bottom_depth % SCROLL_BOTTOM_POS_SIZE;
+        int ci = scroll_bottom_depth % 64;
         const char *bottom = scroll_next_fn(scroll_bottom_depth);
         if (bottom) {
           int clen = strlen(bottom);
@@ -182,11 +172,10 @@ static void do_scroll_up(int n) {
             buffer = realloc(buffer, buffer_size);
             if (!buffer) return;
           }
-          int base = cursor; // == last_line_start at time of trim
-          memcpy(buffer + base, bottom, clen + 1);
-          cursor      = base + clen;
-          draw_cursor = base + scroll_bottom_draw_offsets[ci];
-          input_start = base + scroll_bottom_input_offsets[ci];
+          memcpy(buffer + cursor, bottom, clen + 1);
+          draw_cursor = cursor + scroll_bottom_draw_offsets[ci];
+          input_start = cursor + scroll_bottom_input_offsets[ci];
+          cursor += clen;
         }
       }
     } else {
@@ -199,55 +188,49 @@ static void do_scroll_up(int n) {
     char *dst = buffer;
     while (*src) { *dst++ = *src++; }
     memset(dst, 0, buffer_size - (dst - buffer));
-    cursor        -= line_end;
-    draw_cursor   -= line_end;
-    current_char  -= line_end;
-    input_start   -= line_end;
+    cursor -= line_end;
+    draw_cursor -= line_end;
+    current_char -= line_end;
+    input_start -= line_end;
     last_line_start -= line_end;
-    if (cursor        < 0) cursor        = 0;
-    if (draw_cursor   < 0) draw_cursor   = 0;
-    if (current_char  < 0) current_char  = 0;
-    if (input_start   < 0) input_start   = 0;
+    if (cursor < 0) cursor = 0;
+    if (draw_cursor < 0) draw_cursor = 0;
+    if (current_char < 0) current_char = 0;
+    if (input_start < 0) input_start = 0;
     if (last_line_start < 0) last_line_start = 0;
     rescan_buffer();
   }
   scroll = 0;
 }
 
-// Scroll down by n lines: prepend n lines from scroll_prev_fn into the buffer.
-// Only trims the bottom line (pushing it with direction=1) when putchar_y >= height.
 static void do_scroll_down(int n) {
   if (!scroll_prev_fn) return;
   for (int s = 0; s < n; s++) {
     const char *line = scroll_prev_fn(scroll_back_count);
     if (!line) break;
     int line_len = strlen(line);
-    // Grow buffer if needed
     while (cursor + line_len + 2 >= buffer_size) {
       buffer_size += 64;
       buffer = realloc(buffer, buffer_size);
       if (!buffer) return;
     }
-    // Shift existing content right, prepend line
     memmove(buffer + line_len, buffer, cursor + 1);
     memcpy(buffer, line, line_len);
-    cursor        += line_len;
-    draw_cursor   += line_len;
-    current_char  += line_len;
-    input_start   += line_len;
+    cursor += line_len;
+    draw_cursor += line_len;
+    current_char += line_len;
+    input_start += line_len;
     last_line_start += line_len;
     scroll_back_count++;
     rescan_buffer();
-    // Only offload the last line if it has gone past the visible height
     if (putchar_y >= height) {
-      // Save cursor/input_start as offsets from trim point (content goes to app via callback)
-      int ci = scroll_bottom_depth % SCROLL_BOTTOM_POS_SIZE;
-      scroll_bottom_draw_offsets[ci]  = draw_cursor  - last_line_start;
-      scroll_bottom_input_offsets[ci] = input_start  - last_line_start;
+      int ci = scroll_bottom_depth % 64;
+      scroll_bottom_draw_offsets[ci] = draw_cursor - last_line_start;
+      scroll_bottom_input_offsets[ci] = input_start - last_line_start;
       scroll_bottom_depth++;
       if (scroll_push_fn) scroll_push_fn(buffer + last_line_start, 1);
       buffer[last_line_start] = '\0';
-      cursor      = last_line_start;
+      cursor = last_line_start;
       draw_cursor = last_line_start;
       input_start = last_line_start;
       rescan_buffer();
@@ -433,16 +416,10 @@ void gfxt_putchar(char c) {
         }
         break;
       case ANSI_SCROLL_UP:
-        {
-          int n = putchar_ansi_params[0] > 0 ? putchar_ansi_params[0] : 1;
-          do_scroll_up(n);
-        }
+        do_scroll_up(putchar_ansi_params[0] > 0 ? putchar_ansi_params[0] : 1);
         break;
       case ANSI_SCROLL_DOWN:
-        {
-          int n = putchar_ansi_params[0] > 0 ? putchar_ansi_params[0] : 1;
-          do_scroll_down(n);
-        }
+        do_scroll_down(putchar_ansi_params[0] > 0 ? putchar_ansi_params[0] : 1);
         break;
     }
     ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);

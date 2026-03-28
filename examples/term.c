@@ -55,23 +55,45 @@ static char* down_scroll_history[HISTORY_SIZE];
 static int down_scroll_history_count = 0;
 static int down_scroll_history_start = 0;
 
-void scroll_fn(const char* line, int scroll) {
-  printf("scroll: %s, scroll: %d\n", line, scroll);
+// direction=-1: line scrolled off the top (stored for scroll-down retrieval)
+// direction=+1: line scrolled off the bottom (stored in down history)
+void scroll_fn(const char* line, int direction) {
+  if (!line || strlen(line) == 0) return;
+  if (direction <= 0) {
+    // Scrolled off the top → store in up_scroll_history
+    if (up_scroll_history_count >= HISTORY_SIZE) {
+      free(up_scroll_history[up_scroll_history_start]);
+      up_scroll_history_start = (up_scroll_history_start + 1) % HISTORY_SIZE;
+      up_scroll_history_count--;
+    }
+    int idx = (up_scroll_history_start + up_scroll_history_count) % HISTORY_SIZE;
+    up_scroll_history[idx] = strdup(line);
+    up_scroll_history_count++;
+  } else {
+    // Scrolled off the bottom → store in down_scroll_history
+    if (down_scroll_history_count >= HISTORY_SIZE) {
+      free(down_scroll_history[down_scroll_history_start]);
+      down_scroll_history_start = (down_scroll_history_start + 1) % HISTORY_SIZE;
+      down_scroll_history_count--;
+    }
+    int idx = (down_scroll_history_start + down_scroll_history_count) % HISTORY_SIZE;
+    down_scroll_history[idx] = strdup(line);
+    down_scroll_history_count++;
+  }
 }
 
+// index=0 → most recently pushed line (off top), index=1 → second most recent, etc.
 const char* scroll_prev_fn(int index) {
-  printf("scroll_prev_fn called with index: %d, up_scroll_history_count: %d\n", index, up_scroll_history_count);
-  if (index < 0 || index >= up_scroll_history_count) {
-    printf("returning NULL - index out of range\n");
-    return NULL;
-  }
-
-  // Index 0 = most recent, Index 1 = second most recent, etc.
+  if (index < 0 || index >= up_scroll_history_count) return NULL;
   int idx = (up_scroll_history_start + up_scroll_history_count - 1 - index) % HISTORY_SIZE;
-  printf("calculated idx: %d, up_scroll_history_start: %d\n", idx, up_scroll_history_start);
-  printf("up_scroll_history[idx] pointer: %p\n", (void*)up_scroll_history[idx]);
-  printf("returning up_scroll_history[%d]: '%s'\n", idx, up_scroll_history[idx] ? up_scroll_history[idx] : "NULL");
   return up_scroll_history[idx];
+}
+
+// index=0 → oldest pushed line (off bottom), matches scroll_bottom_depth indexing
+const char* scroll_next_fn(int index) {
+  if (index < 0 || index >= down_scroll_history_count) return NULL;
+  int idx = (down_scroll_history_start + index) % HISTORY_SIZE;
+  return down_scroll_history[idx];
 }
 
 
@@ -95,7 +117,7 @@ void gfx_app(int init) {
   int h = WINDOW_HEIGHT / fh;
   x = (WINDOW_WIDTH - w * fw) / 2;
   y = (WINDOW_HEIGHT - h * fh) / 2;
-  gfxt_init(w, h, get_prompt, NULL, scroll_fn, scroll_prev_fn, history_push_fn, history_prev_fn);
+  gfxt_init(w, h, get_prompt, NULL, scroll_fn, scroll_prev_fn, scroll_next_fn, history_push_fn, history_prev_fn);
   gfxt_std_cmd_reg();
 }
 

@@ -344,10 +344,12 @@ void gfxt_putchar(char c) {
         }
         break;
       case ANSI_SCROLL_UP:
-        // Handle scroll up
+        printf("scroll up\n");
+        // Handle scroll up - lines added at the bottom
         break;
       case ANSI_SCROLL_DOWN:
-        // Handle scroll down
+        printf("scroll down\n");
+        // Handle scroll down - lines added at the top
         break;
     }
     ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
@@ -548,6 +550,14 @@ void gfxt_on_key(uint8_t key) {
 
   if (key ==  'j') {
     gfxt_clear();
+    return;
+  } else if (key == 'o') {
+    // TODO: implement scroll up
+    gfxt_printf("\x1b[1S");
+    return;
+  } else if (key == 'l') {
+    // TODO: implement scroll down
+    gfxt_printf("\x1b[1T");
     return;
   }
 

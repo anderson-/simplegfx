@@ -234,6 +234,7 @@ static void loop() {
 #else
   SDL_Flip(screen);
 #endif
+    gfx_clear();
   }
 
   busytime = SDL_GetTicks() - start;

@@ -48,9 +48,36 @@ const char* history_prev_fn(int index) {
   return history[idx];
 }
 
+static char* up_scroll_history[HISTORY_SIZE];
+static int up_scroll_history_count = 0;
+static int up_scroll_history_start = 0;
+static char* down_scroll_history[HISTORY_SIZE];
+static int down_scroll_history_count = 0;
+static int down_scroll_history_start = 0;
+
 void scroll_fn(const char* line, int scroll) {
   printf("scroll: %s, scroll: %d\n", line, scroll);
 }
+
+const char* scroll_prev_fn(int index) {
+  printf("scroll_prev_fn called with index: %d, up_scroll_history_count: %d\n", index, up_scroll_history_count);
+  if (index < 0 || index >= up_scroll_history_count) {
+    printf("returning NULL - index out of range\n");
+    return NULL;
+  }
+
+  // Index 0 = most recent, Index 1 = second most recent, etc.
+  int idx = (up_scroll_history_start + up_scroll_history_count - 1 - index) % HISTORY_SIZE;
+  printf("calculated idx: %d, up_scroll_history_start: %d\n", idx, up_scroll_history_start);
+  printf("up_scroll_history[idx] pointer: %p\n", (void*)up_scroll_history[idx]);
+  printf("returning up_scroll_history[%d]: '%s'\n", idx, up_scroll_history[idx] ? up_scroll_history[idx] : "NULL");
+  return up_scroll_history[idx];
+}
+
+
+
+
+
 
 const char* get_prompt(void) {
   return "\x1b[32msimplegfx\x1b[m:\x1b[34m~\x1b[m$ ";
@@ -68,7 +95,7 @@ void gfx_app(int init) {
   int h = WINDOW_HEIGHT / fh;
   x = (WINDOW_WIDTH - w * fw) / 2;
   y = (WINDOW_HEIGHT - h * fh) / 2;
-  gfxt_init(w, h, get_prompt, NULL, scroll_fn, NULL, history_push_fn, history_prev_fn);
+  gfxt_init(w, h, get_prompt, NULL, scroll_fn, scroll_prev_fn, history_push_fn, history_prev_fn);
   gfxt_std_cmd_reg();
 }
 

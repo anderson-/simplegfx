@@ -45,7 +45,7 @@ shell:
 .PHONY: all
 all: $(foreach p,$(PLATFORMS),$(addprefix $(p)-,$(EXAMPLES)))
 
-# ── sdl / sdl1.2 ─────────────────────────────────────────────────────────────
+# ── desktop builds ───────────────────────────────────────────────────────────
 
 .PHONY: $(foreach p,$(PLATFORMS),$(addprefix $(p)-,$(EXAMPLES)))
 $(foreach p,$(PLATFORMS),$(addprefix $(p)-, $(EXAMPLES))): %:
@@ -55,7 +55,18 @@ $(foreach p,$(PLATFORMS),$(addprefix $(p)-, $(EXAMPLES))): %:
 	${CC} examples/$(EXAM).c ${SOURCES} ${CFLAGS} ${PLATFORM_FLAGS_$(PLAT)} -o ${BUILD}/$*
 	chmod +x ${BUILD}/$*
 
-# ── sdl / sdl1.2 screenshot ──────────────────────────────────────────────────
+# ── debug builds ─────────────────────────────────────────────────────────────
+
+.PHONY: $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-debug))
+$(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-debug)): %-debug:
+	$(eval PLAT := $(firstword $(subst -, ,$*)))
+	$(eval EXAM := $(patsubst $(PLAT)-%,%,$*))
+	mkdir -p ${BUILD}
+	${CC} examples/$(EXAM).c ${SOURCES} ${CFLAGS} ${PLATFORM_FLAGS_$(PLAT)} -DDEBUG -o ${BUILD}/$*-debug
+	chmod +x ${BUILD}/$*-debug
+	./${BUILD}/$*-debug
+
+# ── screenshot builds ────────────────────────────────────────────────────────
 
 .PHONY: $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot))
 $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot)): %-screenshot:

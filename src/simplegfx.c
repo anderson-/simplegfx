@@ -8,6 +8,7 @@ int printf_size = 0;
 int printf_len = 0;
 int full_kb = 0;
 int spacing = 1;
+int boxdrawing = 0;
 
 void (* gfx_yeld)() = NULL;
 
@@ -33,7 +34,41 @@ font_t * gfx_get_font(void) {
   return _font;
 }
 
+void gfx_draw_char_alt(char c, int x, int y, int size, uint8_t * font_data, int font_width, int font_height) {
+  y += font_height * size;
+  uint8_t uc = (uint8_t)c;
+  int box = (uc >= 0xB3 && uc <= 0xDA);
+  for (int cx = 0; cx < font_width; cx++) {
+    for (int cy = 1; cy <= font_height; cy++) {
+      uint8_t mask = 1 << (font_height - cy);
+      if (font_data[uc * font_width + cx] & mask) {
+        if (size == 1) {
+          gfx_point(x + cx, y - cy);
+          if (box && spacing > 0) {
+            if (cx == 0)
+              for (int s = 1; s <= spacing; s++) gfx_point(x - s, y - cy);
+            if (cy == 1)
+              for (int s = 1; s <= spacing; s++) gfx_point(x + cx, y - cy + s);
+          }
+        } else {
+          gfx_fill_rect(x + cx * size, y - cy * size, size, size);
+          if (box && spacing > 0) {
+            if (cx == 0)
+              gfx_fill_rect(x - spacing * size, y - cy * size, spacing * size, size);
+            if (cy == 1)
+              gfx_fill_rect(x + cx * size, y - cy * size + size, size, spacing * size);
+          }
+        }
+      }
+    }
+  }
+}
+
 inline void gfx_draw_char(char c, int x, int y, int size, uint8_t * font_data, int font_width, int font_height) {
+  if (boxdrawing) {
+    gfx_draw_char_alt(c, x, y, size, font_data, font_width, font_height);
+    return;
+  }
   y += font_height * size;
   for (int cx = 0; cx < font_width; cx++) {
     for (int cy = 1; cy <= font_height; cy++) {

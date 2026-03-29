@@ -43,6 +43,7 @@ extern int printf_size;
 extern int printf_len;
 extern int full_kb;
 extern int spacing;
+extern int boxdrawing;
 
 extern void (* gfx_yeld)();
 

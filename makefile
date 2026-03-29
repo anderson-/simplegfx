@@ -11,6 +11,7 @@ endif
 
 INCLUDES = -I$(LIBS) -I$(BACKENDS) $(addprefix -I,$(wildcard $(LIBS)/ext/*))
 SOURCES  = $(filter-out $(BACKENDS)/%, $(wildcard $(LIBS)/*.c)) $(wildcard $(LIBS)/ext/*/*.c)
+TEST     = test/microcuts/src/microcuts.c -Itest/microcuts/src/
 CFLAGS   = -std=c99 -Wall -g -Os -flto ${INCLUDES} ${XTRA_CFLAGS}
 
 EXAMPLES := $(patsubst examples/%.c,%,$(wildcard examples/*.c))
@@ -83,6 +84,14 @@ $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot)): %-scree
 .PHONY: $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-run))
 $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-run)): %-run: %
 	./${BUILD}/$*
+
+# ── test ─────────────────────────────────────────────────────────────────────
+
+.PHONY: test
+test:
+	${CC} test/test.c ${SOURCES} ${TEST} ${CFLAGS} -DTEST -o ${BUILD}/test
+	chmod +x ${BUILD}/test
+	./${BUILD}/test
 
 # ── rg35xx ───────────────────────────────────────────────────────────────────
 

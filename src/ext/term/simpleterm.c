@@ -48,6 +48,7 @@ int scroll = 0;
 static int draw_cursor = 0;
 static int history_index = -1;
 static int busy = 0;
+static int busy_cursor = 0;
 static int change = 0;
 static int key_input_process = 0;
 static int pager_lines = 0;
@@ -71,6 +72,7 @@ int gfxt_run_cmd(const char* line) {
     if (strcmp(gfxt_cmd_registry[i].name, cmd) == 0) {
       pager_lines = 0;
       pager_quit = 0;
+      busy = 1;
       int code = gfxt_cmd_registry[i].func(args);
       pager_lines = 0;
       pager_quit = 0;
@@ -111,6 +113,7 @@ static void _prompt() {
   input_start = cursor;
   draw_cursor = cursor;
   history_index = -1;
+  busy = 0;
 }
 
 void gfxt_init(int w_chars, int h_chars) {
@@ -190,6 +193,11 @@ void _autocomplete() {
     }
     gfxt_printf("\n");
     _prompt();
+    char * p = buffer + start;
+    while (*p && *p != '\n') {
+      gfxt_putchar(*p);
+      p++;
+    }
   }
 }
 
@@ -341,6 +349,7 @@ void gfxt_putchar(char c) {
       if (draw_cursor != cursor) {
         draw_cursor = cursor;
       }
+      busy_cursor = cursor;
       current_char = cursor;
       if (key_input_process && history_push_fn) history_push_fn(buffer + input_start);
       if (cursor > 0) {
@@ -367,6 +376,7 @@ void gfxt_putchar(char c) {
       }
       return;
     } else if (c == '\t') {
+      key_input_process = 0;
       _autocomplete();
       return;
     }
@@ -493,6 +503,7 @@ void gfxt_clear() {
 }
 
 char gfxt_getchar() {
+  busy = 0;
   gfxt_stdin = 0;
   while (gfx_yeld && !gfxt_stdin) {
     gfx_yeld();
@@ -565,6 +576,7 @@ void gfxt_set_theme(int theme) {
 int gfxt_draw(int x, int y, int size) {
   if (!initialized) return 0;
   frame++;
+  if (busy) busy++;
   if (frame % 10 == 1) {
     change = 2;
   } else if (busy > 5) {
@@ -618,7 +630,12 @@ int gfxt_draw(int x, int y, int size) {
       gfx_fill_rect(px, py + size * 2, fwidth, size);
     }
 #endif
-    if (draw_cursor == i && frame % 20 < 10 && !(busy > 5)) {
+    if (busy > 5 && busy_cursor == i) {
+      int spin_idx = (frame/2) % 4;
+      char spin_char = spinner[spin_idx];
+      ansi_set_color(8);
+      gfx_draw_char(spin_char, x + pos_x * fwidth, y + pos_y * fheight, size, f.data, f.width, f.height);
+    } else if (draw_cursor == i && frame % 20 < 10) {
       int px = x + pos_x * fwidth;
       int py = y + pos_y * fheight;
       gfx_fill_rect(px, py, fwidth, fheight);
@@ -638,18 +655,11 @@ int gfxt_draw(int x, int y, int size) {
       gfx_draw_char(*p, mx, py + size, size, f.data, f.width, f.height);
       mx += fwidth;
     }
-  } else if (draw_cursor == i) {
-    if (busy > 5) {
-      int spin_idx = (frame/2) % 4;
-      char spin_char = spinner[spin_idx];
-      ansi_set_color(8);
-      gfx_draw_char(spin_char, x + pos_x * fwidth, y + pos_y * fheight, size, f.data, f.width, f.height);
-    } else if (frame % 20 < 10) {
-      ansi_set_color(cursor_color);
-      int px = x + pos_x * fwidth;
-      int py = y + pos_y * fheight;
-      gfx_fill_rect(px, py, fwidth, fheight);
-    }
+  } else if (!busy && draw_cursor == i && frame % 20 < 10) {
+    ansi_set_color(cursor_color);
+    int px = x + pos_x * fwidth;
+    int py = y + pos_y * fheight;
+    gfx_fill_rect(px, py, fwidth, fheight);
   }
   change--;
   return 1;

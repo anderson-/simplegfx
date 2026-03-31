@@ -42,6 +42,7 @@ static int bg_color = 0;
 static int pos_x = 0;
 static int pos_y = 0;
 volatile char gfxt_stdin = 1;
+int gfxt_stdin_state = 0;
 int cursor_color = 7;
 int frame = 0;
 int scroll = 0;
@@ -119,13 +120,15 @@ static void _prompt() {
 void gfxt_init(int w_chars, int h_chars) {
   if (buffer != NULL) {
     free(buffer);
+    buffer = NULL;
   }
   if (w_chars <= 0 || h_chars <= 0) {
+    initialized = 0;
     return;
   }
   width = w_chars;
   height = h_chars;
-  eval_fn = gfxt_run_cmd;
+  eval_fn = eval_fn ? eval_fn : gfxt_run_cmd;
   buffer_size = width * height * 2;
   buffer = malloc(buffer_size);
   if (buffer == NULL) return;
@@ -670,6 +673,33 @@ void gfxt_on_key(uint8_t key) {
   change = 1;
 
   if (!gfxt_stdin) {
+    if (key == '\x1b' && gfxt_stdin_state == 0) {
+      gfxt_stdin_state = 1;
+      return;
+    } else if (gfxt_stdin_state == 1) {
+      if (key == '[') {
+        gfxt_stdin_state = 2;
+        return;
+      }
+      gfxt_stdin_state = 0;
+    } else if (gfxt_stdin_state == 2) {
+      switch (key) {
+        case 'A':
+          gfxt_stdin = ANSI_CURSOR_UP;
+          break;
+        case 'B':
+          gfxt_stdin = ANSI_CURSOR_DOWN;
+          break;
+        case 'C':
+          gfxt_stdin = ANSI_CURSOR_RIGHT;
+          break;
+        case 'D':
+          gfxt_stdin = ANSI_CURSOR_LEFT;
+          break;
+      }
+      gfxt_stdin_state = 0;
+      return;
+    }
     gfxt_stdin = key;
     return;
   }

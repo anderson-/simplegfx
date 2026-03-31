@@ -4,6 +4,7 @@
 #include "simplegfx.h"
 #include "ext/term/simpleterm.h"
 #include "ext/term/stdcmds.h"
+#include "ext/term/dialogs.h"
 
 #define HISTORY_SIZE 50
 
@@ -54,6 +55,7 @@ void gfx_app(int init) {
   gfxt_set_prompt_handler(get_prompt);
   gfxt_set_history_handler(history_push_fn, history_prev_fn);
   gfxt_std_cmd_reg();
+  dialog_test_cmd_reg();
   gfxt_init(w, h);
 }
 

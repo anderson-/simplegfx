@@ -32,6 +32,7 @@ int gfxt_println(const char *str);
 int gfxt_printf(const char *format, ...);
 void gfxt_clear();
 char gfxt_getchar();
+char gfxt_getchar_nb();
 char* gfxt_gets(char *str, int count);
 int gfxt_scanf(const char *format, ...);
 void gfxt_set_theme(int theme);

@@ -514,6 +514,14 @@ char gfxt_getchar() {
   return gfxt_stdin;
 }
 
+char gfxt_getchar_nb() {
+  if (busy) {
+    busy = 0;
+    gfxt_stdin = 0;
+  }
+  return gfxt_stdin;
+}
+
 char* gfxt_gets(char *str, int count) {
   if (!str) return NULL;
   int i = 0;

@@ -40,6 +40,7 @@
 #define BULLET_POINT "\xf9"
 
 void draw_screen(int cf, int cb, int bt, int pl, int mh, int mv, char mc, int ph, int pv, char pc, char (*content)(int x, int y, int w, int h)) {
+  gfxt_set_rendering(1);
   gfxt_clear();
   int w, h;
   gfxt_get_size(&w, &h);
@@ -69,6 +70,7 @@ void draw_screen(int cf, int cb, int bt, int pl, int mh, int mv, char mc, int ph
       }
     }
   }
+  gfxt_set_rendering(0);
 }
 
 static int ansi_seq_len(const char *p) {
@@ -202,6 +204,7 @@ const char *content_text(int x, int y, int w, int h, const char *text, int cf, i
 }
 
 void draw_text_screen(int cf, int cb, int bt, int pl, int mh, int mv, char mc, int ph, int pv, char pc, char *content) {
+  gfxt_set_rendering(1);
   gfxt_clear();
   int w, h;
   gfxt_get_size(&w, &h);
@@ -231,10 +234,11 @@ void draw_text_screen(int cf, int cb, int bt, int pl, int mh, int mv, char mc, i
       }
     }
   }
+  gfxt_set_rendering(0);
 }
 
 int cmd_text_screen_demo(const char *args) {
-  char text_content[1024] = TERM_CYAN "Lorem ipsum dolor sit amet, " TERM_YELLOW "consectetur adipiscing elit. " TERM_GREEN "Sed do eiusmod tempor incididunt " TERM_BLUE "ut aliqua.\n\n" TERM_MAGENTA "\rUt enim ad minim veniam.";
+  char text_content[] = TERM_CYAN "Lorem ipsum dolor sit amet, " TERM_YELLOW "consectetur adipiscing elit. " TERM_GREEN "Sed do eiusmod tempor incididunt " TERM_BLUE "ut aliqua.\n\n" TERM_MAGENTA "\rUt enim ad minim veniam.";
   for (int bt = 0; bt <= 2; bt++) {
     for (int mh = 0; mh <= 2; mh++) {
       for (int mv = 0; mv <= 2; mv++) {
@@ -257,6 +261,194 @@ int cmd_text_screen_demo(const char *args) {
   return 0;
 }
 
+// ─── Dialog helpers ───────────────────────────────────────────────────────────
+// All dialogs block on gfxt_getchar(), redraw on each input, and use TERM_*
+// macros to highlight the active selection.
+
+// Build a Y/N prompt string into `out` (size `outsz`).
+// `sel` == 0 → Yes highlighted, 1 → No highlighted.
+static void _dlg_yn_str(char *out, int outsz, const char *msg, int sel) {
+  snprintf(out, outsz,
+    "%s\n\n"
+    "%s[ Yes ]%s   %s[ No ]%s",
+    msg,
+    sel == 0 ? TERM_BG_GREEN TERM_WHITE : TERM_RESET, TERM_RESET,
+    sel == 1 ? TERM_BG_RED   TERM_WHITE : TERM_RESET, TERM_RESET);
+}
+
+// Returns 1 (Yes) or 0 (No). ESC / 'q' returns -1.
+int dialog_yn(const char *msg) {
+  int sel = 0;
+  char buf[512];
+  for (;;) {
+    _dlg_yn_str(buf, sizeof(buf), msg, sel);
+    draw_text_screen(-1, -1, 2, 0, 2, 1, ' ', 2, 1, ' ', buf);
+    char k = gfxt_getchar();
+    if (k == ANSI_CURSOR_LEFT  || k == ANSI_CURSOR_UP)   sel = 0;
+    if (k == ANSI_CURSOR_RIGHT || k == ANSI_CURSOR_DOWN) sel = 1;
+    if (k == '\r' || k == '\n') return !sel; // Yes=1, No=0
+    if (k == 'y' || k == 'Y')  return 1;
+    if (k == 'n' || k == 'N')  return 0;
+    if (k == '\x1b' || k == 'q') return -1;
+  }
+}
+
+// ─── Options dialog ───────────────────────────────────────────────────────────
+// Build a vertical list of options; active item shown with BG_BLUE highlight.
+static void _dlg_options_str(char *out, int outsz, const char *title,
+                              const char **opts, int nopts, int sel) {
+  int oi = 0;
+  oi += snprintf(out + oi, outsz - oi, "%s\n\n", title);
+  for (int i = 0; i < nopts && oi < outsz - 64; i++) {
+    if (i == sel)
+      oi += snprintf(out + oi, outsz - oi,
+        TERM_BG_BLUE TERM_WHITE " > %s " TERM_RESET "\n", opts[i]);
+    else
+      oi += snprintf(out + oi, outsz - oi, "   %s\n", opts[i]);
+  }
+}
+
+// Returns the index of the chosen option, or -1 on ESC/q.
+int dialog_options(const char *title, const char **opts, int nopts) {
+  int sel = 0;
+  char buf[1024];
+  for (;;) {
+    _dlg_options_str(buf, sizeof(buf), title, opts, nopts, sel);
+    draw_text_screen(-1, -1, 2, 0, 2, 1, ' ', 2, 1, ' ', buf);
+    char k = gfxt_getchar();
+    if (k == ANSI_CURSOR_UP)   { sel = (sel - 1 + nopts) % nopts; }
+    if (k == ANSI_CURSOR_DOWN) { sel = (sel + 1) % nopts; }
+    if (k == '\r' || k == '\n') return sel;
+    if (k == '\x1b' || k == 'q') return -1;
+  }
+}
+
+// ─── Text input dialog ────────────────────────────────────────────────────────
+static void _dlg_input_str(char *out, int outsz, const char *prompt,
+                            const char *val, int cursor) {
+  char field[128];
+  int vi = 0;
+  for (int i = 0; val[i] && vi < (int)sizeof(field) - 32; i++, vi++) {
+    if (i == cursor)
+      vi += snprintf(field + vi, sizeof(field) - vi,
+        TERM_BG_CYAN TERM_BLACK "%c" TERM_RESET, val[i]) - 1;
+    else
+      field[vi] = val[i];
+  }
+  // cursor at end
+  if (cursor >= (int)strlen(val) && vi < (int)sizeof(field) - 16)
+    vi += snprintf(field + vi, sizeof(field) - vi, TERM_BG_CYAN TERM_BLACK "_" TERM_RESET);
+  field[vi] = '\0';
+  snprintf(out, outsz, "%s\n\n\r[ %s ]", prompt, field);
+}
+
+// Fills `result` (max `maxlen` chars). Returns 1 on Enter, 0 on ESC.
+int dialog_input(const char *prompt, char *result, int maxlen) {
+  char val[256] = {0};
+  int len = 0, cursor = 0;
+  char buf[512];
+  for (;;) {
+    _dlg_input_str(buf, sizeof(buf), prompt, val, cursor);
+    draw_text_screen(-1, -1, 2, 0, 2, 1, ' ', 2, 1, ' ', buf);
+    char k = gfxt_getchar();
+    if (k == '\r' || k == '\n') {
+      int cp = maxlen - 1 < len ? maxlen - 1 : len;
+      memcpy(result, val, cp); result[cp] = '\0';
+      return 1;
+    }
+    if (k == '\x1b') return 0;
+    if (k == ANSI_CURSOR_LEFT  && cursor > 0)   cursor--;
+    if (k == ANSI_CURSOR_RIGHT && cursor < len)  cursor++;
+    if ((k == '\b' || k == 127) && cursor > 0) {
+      memmove(val + cursor - 1, val + cursor, len - cursor);
+      len--; cursor--; val[len] = '\0';
+    } else if (k >= 0x20 && k < 0x7f && len < maxlen - 1) {
+      memmove(val + cursor + 1, val + cursor, len - cursor);
+      val[cursor++] = k; len++; val[len] = '\0';
+    }
+  }
+}
+
+// ─── Password input dialog ────────────────────────────────────────────────────
+static void _dlg_pass_str(char *out, int outsz, const char *prompt, int len) {
+  char stars[128];
+  int i;
+  for (i = 0; i < len && i < 127; i++) stars[i] = '*';
+  stars[i] = '\0';
+  snprintf(out, outsz, "%s\n\n\r[ %s_ ]", prompt, stars);
+}
+
+// Fills `result` (max `maxlen` chars). Returns 1 on Enter, 0 on ESC.
+int dialog_password(const char *prompt, char *result, int maxlen) {
+  char val[256] = {0};
+  int len = 0;
+  char buf[512];
+  for (;;) {
+    _dlg_pass_str(buf, sizeof(buf), prompt, len);
+    draw_text_screen(-1, -1, 2, 0, 2, 1, ' ', 2, 1, ' ', buf);
+    char k = gfxt_getchar();
+    if (k == '\r' || k == '\n') {
+      int cp = maxlen - 1 < len ? maxlen - 1 : len;
+      memcpy(result, val, cp); result[cp] = '\0';
+      return 1;
+    }
+    if (k == '\x1b') return 0;
+    if ((k == '\b' || k == 127) && len > 0) { len--; val[len] = '\0'; }
+    else if (k >= 0x20 && k < 0x7f && len < maxlen - 1) { val[len++] = k; val[len] = '\0'; }
+  }
+}
+
+// ─── Demo commands ────────────────────────────────────────────────────────────
+static int cmd_dialog_yn_demo(const char *args) {
+  (void)args;
+  int r = dialog_yn("Delete all files?\nThis cannot be undone.");
+  if (r == 1)  draw_text_screen(-1, -1, 1, 0, 2, 1, ' ', 2, 1, ' ', TERM_GREEN "Confirmed!");
+  else if (r == 0) draw_text_screen(-1, -1, 1, 0, 2, 1, ' ', 2, 1, ' ', TERM_RED "Cancelled.");
+  else draw_text_screen(-1, -1, 1, 0, 2, 1, ' ', 2, 1, ' ', "Escaped.");
+  gfxt_getchar();
+  return 0;
+}
+
+static int cmd_dialog_opts_demo(const char *args) {
+  (void)args;
+  const char *opts[] = { "Option Alpha", "Option Beta", "Option Gamma", "Option Delta" };
+  int r = dialog_options("Choose an option:", opts, 4);
+  char msg[64];
+  if (r >= 0) snprintf(msg, sizeof(msg), TERM_GREEN "Selected: %s", opts[r]);
+  else        snprintf(msg, sizeof(msg), TERM_RED "Cancelled.");
+  draw_text_screen(-1, -1, 1, 0, 2, 1, ' ', 2, 1, ' ', msg);
+  gfxt_getchar();
+  return 0;
+}
+
+static int cmd_dialog_input_demo(const char *args) {
+  (void)args;
+  char result[64] = {0};
+  int r = dialog_input("Enter your name:", result, sizeof(result));
+  char msg[128];
+  if (r) snprintf(msg, sizeof(msg), TERM_GREEN "Hello, %s!", result);
+  else   snprintf(msg, sizeof(msg), TERM_RED "Cancelled.");
+  draw_text_screen(-1, -1, 1, 0, 2, 1, ' ', 2, 1, ' ', msg);
+  gfxt_getchar();
+  return 0;
+}
+
+static int cmd_dialog_pass_demo(const char *args) {
+  (void)args;
+  char result[64] = {0};
+  int r = dialog_password("Enter password:", result, sizeof(result));
+  char msg[128];
+  if (r) snprintf(msg, sizeof(msg), TERM_GREEN "Got %d chars.", (int)strlen(result));
+  else   snprintf(msg, sizeof(msg), TERM_RED "Cancelled.");
+  draw_text_screen(-1, -1, 1, 0, 2, 1, ' ', 2, 1, ' ', msg);
+  gfxt_getchar();
+  return 0;
+}
+
 void dialog_test_cmd_reg() {
-  gfxt_register_cmd("tsdemo", "show text screen demo", cmd_text_screen_demo);
+  gfxt_register_cmd("tsdemo",   "show text screen demo",     cmd_text_screen_demo);
+  gfxt_register_cmd("dlgyn",   "yes/no dialog demo",        cmd_dialog_yn_demo);
+  gfxt_register_cmd("dlgopts", "options list dialog demo",  cmd_dialog_opts_demo);
+  gfxt_register_cmd("dlgin",   "text input dialog demo",    cmd_dialog_input_demo);
+  gfxt_register_cmd("dlgpass", "password input dialog demo",cmd_dialog_pass_demo);
 }

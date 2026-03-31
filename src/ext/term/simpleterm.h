@@ -40,6 +40,7 @@ int gfxt_draw(int x, int y, int size);
 void gfxt_on_key(uint8_t key);
 void gfxt_set_busy(int busy);
 void gfxt_get_size(int *w, int *h);
+void gfxt_set_rendering(int rendering);
 
 #ifdef EXPORT_STDIO
 #define putchar gfxt_putchar

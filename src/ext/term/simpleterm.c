@@ -55,6 +55,7 @@ static int key_input_process = 0;
 static int pager_lines = 0;
 static int pager_quit = 0;
 static int pager_waiting = 0;
+static int rendering = 0;
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
   if (gfxt_cmd_registry_len < MAX_COMMANDS) {
@@ -586,6 +587,7 @@ void gfxt_set_theme(int theme) {
 
 int gfxt_draw(int x, int y, int size) {
   if (!initialized) return 0;
+  if (rendering) return 0;
   frame++;
   if (busy) busy++;
   if (frame % 10 == 1) {
@@ -607,6 +609,7 @@ int gfxt_draw(int x, int y, int size) {
   int i = 0;
   char c = buffer[i];
   while (1) {
+    if (rendering) return 0;
     c = _process_ansi(c);
     int px = x + pos_x * fwidth;
     int py = y + pos_y * fheight;
@@ -673,7 +676,7 @@ int gfxt_draw(int x, int y, int size) {
     gfx_fill_rect(px, py, fwidth, fheight);
   }
   change--;
-  return 1;
+  return !rendering;
 }
 
 void gfxt_on_key(uint8_t key) {
@@ -724,6 +727,10 @@ void gfxt_set_busy(int _busy) {
 void gfxt_get_size(int *w, int *h) {
   if (w) *w = width;
   if (h) *h = height;
+}
+
+void gfxt_set_rendering(int _rendering) {
+  rendering = _rendering;
 }
 
 #ifdef TEST

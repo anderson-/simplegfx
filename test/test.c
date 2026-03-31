@@ -503,7 +503,7 @@ void dialogs(void) {
 void text_screen() {
   gfxt_init(0, 0);
   gfxt_init(30, 15);
-  char text_content[1024] = TERM_YELLOW "Hello\n" TERM_GREEN "World!\n" TERM_RED "My name  asdasdads. asdis Anderson!\n\n" TERM_BLUE "\rNot c a asd asd asd s sd entered.";
+  char text_content[] = TERM_CYAN "Lorem ipsum dolor sit amet, " TERM_YELLOW "consectetur adipiscing elit. " TERM_GREEN "Sed do eiusmod tempor incididunt " TERM_BLUE "ut aliqua.\n\n" TERM_MAGENTA "\rUt enim ad minim veniam.";
   draw_text_screen(0, 0, 1, 0, 1, 1, 'm', 1, 1, 'p', text_content);
   print_buffer();
 }

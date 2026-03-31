@@ -58,26 +58,33 @@ void draw_screen(int cf, int cb, int bt, int pl, int mh, int mv, char mc, int ph
   if (cf >= 0 && cb >= 0) {
     gfxt_printf("\x1b[%d;%dm", cb + 40, cf + 30);
   }
-  if (!bt) {
-    if (mh) mh--; else if (ph) ph--;
-    if (mv) mv--; else if (pv) pv--;
-  }
+  // bt is a style enum (0=none, 1=single, 2=double); border thickness is always 0 or 1
+  int bw = bt ? 1 : 0;
+  // border positions (h already decremented above)
+  int bx = mh,          bxr = w - 1 - mh;
+  int by = mv,          byr = h - pl - mv;
+  // content region
+  int cx = mh + bw + ph, cxr = w - 1 - mh - bw - ph;
+  int cy = mv + bw + pv, cyr = h - pl - mv - bw - pv;
+
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
-      if (bt && (x == mh && y == mv)) gfxt_print(bt == 0 ? " " : (bt == 1 ? BOX_TL : BOX_TL2));
-      else if (bt && (x == w - 1 - mh && y == mv)) gfxt_print(bt == 0 ? " " : (bt == 1 ? BOX_TR : BOX_TR2));
-      else if (bt && (x == mh && y == h - pl - mv)) gfxt_print(bt == 0 ? " " : (bt == 1 ? BOX_BL : BOX_BL2));
-      else if (bt && (x == w - 1 - mh && y == h - pl - mv)) gfxt_print(bt == 0 ? " " : (bt == 1 ? BOX_BR : BOX_BR2));
-      else if (bt && (y == mv || y == h - pl - mv) && (x > mh && x < w - 1 - mh)) gfxt_print(bt == 0 ? " " : (bt == 1 ? BOX_H : BOX_H2));
-      else if (bt && (x == mh || x == w - 1 - mh) && (y > mv && y < h - pl - mv)) gfxt_print(bt == 0 ? " " : (bt == 1 ? BOX_V : BOX_V2));
-      else {
-        if ((mh || mv) && (x <= mh || x >= w - 1 - mh || y <= mv || y >= h - pl - mv)) {
-          gfxt_putchar(mc);
-        } else if ((ph || pv) && (x <= mh + ph || x >= w - 1 - mh - ph || y <= mv + pv || y >= h - pl - mv - pv)) {
-          gfxt_putchar(pc);
-        } else {
-          gfxt_putchar(content(x, y));
-        }
+      // margin
+      if (x < mh || x > w - 1 - mh || y < mv || y > h - pl - mv) {
+        gfxt_putchar(mc);
+      // border corners and lines
+      } else if (bt && x == bx  && y == by)  { gfxt_print(bt == 1 ? BOX_TL : BOX_TL2);
+      } else if (bt && x == bxr && y == by)  { gfxt_print(bt == 1 ? BOX_TR : BOX_TR2);
+      } else if (bt && x == bx  && y == byr) { gfxt_print(bt == 1 ? BOX_BL : BOX_BL2);
+      } else if (bt && x == bxr && y == byr) { gfxt_print(bt == 1 ? BOX_BR : BOX_BR2);
+      } else if (bt && (y == by || y == byr) && x > bx && x < bxr) { gfxt_print(bt == 1 ? BOX_H : BOX_H2);
+      } else if (bt && (x == bx || x == bxr) && y > by && y < byr) { gfxt_print(bt == 1 ? BOX_V : BOX_V2);
+      // padding
+      } else if (x < cx || x > cxr || y < cy || y > cyr) {
+        gfxt_putchar(pc);
+      // content
+      } else {
+        gfxt_putchar(content(x, y));
       }
     }
   }

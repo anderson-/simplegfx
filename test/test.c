@@ -383,21 +383,53 @@ void dialogs(void) {
   assert_escstr_eq(cut_v(get_buffer(), w, h, pl, -1), "" BOX_H "" "GHIJKLMN" "" /*BOX_H ""*/, esc);
   assert_escstr_eq(cut_h(get_buffer(), w, h, pl, -1), "" BOX_V "" "GHIJKLMN" "" BOX_V "", esc);
 
-  draw_screen( // border + margin + padding
-    -1,  // foreground color
-    -1,  // background color
-    0,  // border type
-    pl,  // prompt line
-    1,  // margin horizontal
-    1,  // margin vertical
-    'm', // margin character
-    0,  // padding horizontal
-    0,  // padding vertical
-    'p',  // padding character
-    content  // content function
+  // bt=0, mh=1, mv=1, ph=0, pv=0: no border, margin only
+  // w=10, h=9 (after decrement), cut_v returns h-!pl=9 chars (y=0..8)
+  // cut_v(x=5): y=0->m, y=1..8->content(5,y): G,H,I,J,K,L,M,N
+  // cut_h(y=4, middle): x=0->m, x=1..8->content(x,4): F,G,H,I,J,K,L,M, x=9->m
+  draw_screen(
+    -1, -1,
+    0,   // border type: none
+    pl,
+    1, 1, 'm',
+    0, 0, 'p',
+    content
   );
-  assert_escstr_eq(cut_v(get_buffer(), w, h, pl, -1), "m" BOX_H "" "HIJKLM" "" BOX_H "", esc);
-  assert_escstr_eq(cut_h(get_buffer(), w, h, pl, -1), "m" BOX_V "" "HIJKLM" "" BOX_V "m", esc);
+  assert_escstr_eq(cut_v(get_buffer(), w, h, pl, -1), "m" "GHIJKLMN", esc);
+  assert_escstr_eq(cut_h(get_buffer(), w, h, pl, -1), "m" "GHIJKLMN" "m", esc);
+  assert_escstr_eq(cut_h(get_buffer(), w, h, pl, 0), "mmmmmmmmmm", esc);
+
+  // bt=0, mh=1, mv=1, ph=1, pv=1: no border, margin + padding
+  // cx=2, cxr=7, cy=2, cyr=6 (h-pl-mv-bt-pv=9-0-1-0-1=7? no: cyr=h-pl-mv-bt-pv=9-0-1-0-1=7)
+  // cut_v(x=5): y=0->m, y=1->p, y=2..6->content(5,2..6): G,H,I,J,K, y=7->p, y=8->p(cyr=7,y>7=8->p)
+  // wait: cyr = h-pl-mv-bt-pv = 9-0-1-0-1 = 7; y>7 -> padding; y=8->p
+  // cut_v(x=5, y=0..8): m,p,G,H,I,J,K,p,p  (9 chars)
+  draw_screen(
+    -1, -1,
+    0,   // border type: none
+    pl,
+    1, 1, 'm',
+    1, 1, 'p',
+    content
+  );
+  assert_escstr_eq(cut_v(get_buffer(), w, h, pl, -1), "m" "p" "HIJKLM" "p", esc);
+  assert_escstr_eq(cut_h(get_buffer(), w, h, pl, -1), "m" "p" "HIJKLM" "p" "m", esc);
+  assert_escstr_eq(cut_h(get_buffer(), w, h, pl, 0), "mmmmmmmmmm", esc);
+  assert_escstr_eq(cut_h(get_buffer(), w, h, pl, 1), "mppppppppm", esc);
+
+  // bt=0, mh=0, mv=0, ph=0, pv=0: full content, no margin/padding/border
+  // cut_v(x=5): y=0..8 -> content(5,0..8): F,G,H,I,J,K,L,M,N (9 chars)
+  // cut_h(y=4): x=0..9 -> content(0..9,4): E,F,G,H,I,J,K,L,M,N (10 chars)
+  draw_screen(
+    -1, -1,
+    0,
+    pl,
+    0, 0, 'm',
+    0, 0, 'p',
+    content
+  );
+  assert_escstr_eq(cut_v(get_buffer(), w, h, pl, -1), "FGHIJKLMN", esc);
+  assert_escstr_eq(cut_h(get_buffer(), w, h, pl, -1), "FGHIJKLMNO", esc);
 
   print_buffer(); exit(0);
 }

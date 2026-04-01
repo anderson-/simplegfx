@@ -34,14 +34,20 @@ font_t * gfx_get_font(void) {
   return _font;
 }
 
-void gfx_draw_char_alt(char c, int x, int y, int size, uint8_t * font_data, int font_width, int font_height) {
-  y += font_height * size;
+void gfx_get_font_size(int * width, int * height, int size) {
+  if (width) *width = (_font->width + spacing) * size;
+  if (height) *height = (_font->height + spacing) * size;
+}
+
+void gfx_draw_char_alt(char c, int x, int y, int size) {
+  if (_font == NULL) return;
+  y += _font->height * size;
   uint8_t uc = (uint8_t)c;
   int box = (uc >= 0xB3 && uc <= 0xDA);
-  for (int cx = 0; cx < font_width; cx++) {
-    for (int cy = 1; cy <= font_height; cy++) {
-      uint8_t mask = 1 << (font_height - cy);
-      if (font_data[uc * font_width + cx] & mask) {
+  for (int cx = 0; cx < _font->width; cx++) {
+    for (int cy = 1; cy <= _font->height; cy++) {
+      uint8_t mask = 1 << (_font->height - cy);
+      if (_font->data[uc * _font->width + cx] & mask) {
         if (size == 1) {
           gfx_point(x + cx, y - cy);
           if (box && spacing > 0) {
@@ -64,16 +70,16 @@ void gfx_draw_char_alt(char c, int x, int y, int size, uint8_t * font_data, int 
   }
 }
 
-inline void gfx_draw_char(char c, int x, int y, int size, uint8_t * font_data, int font_width, int font_height) {
+inline void gfx_draw_char(char c, int x, int y, int size) {
   if (boxdrawing) {
-    gfx_draw_char_alt(c, x, y, size, font_data, font_width, font_height);
+    gfx_draw_char_alt(c, x, y, size);
     return;
   }
-  y += font_height * size;
-  for (int cx = 0; cx < font_width; cx++) {
-    for (int cy = 1; cy <= font_height; cy++) {
-      uint8_t mask = 1 << (font_height - cy);
-      if (font_data[(uint8_t)c * font_width + cx] & mask) {
+  y += _font->height * size;
+  for (int cx = 0; cx < _font->width; cx++) {
+    for (int cy = 1; cy <= _font->height; cy++) {
+      uint8_t mask = 1 << (_font->height - cy);
+      if (_font->data[(uint8_t)c * _font->width + cx] & mask) {
         if (size == 1) {
           gfx_point(x + cx, y - cy);
         } else {
@@ -89,30 +95,29 @@ int gfx_text(const char * text, int x, int y, int size) {
     return y;
   }
   int len = (int)strlen(text);
-  font_t f = *_font;
-  int fheight = f.height;
-  int fwidth = f.width;
   int cx = x;
   int cy = y;
+  int fw, fh;
+  gfx_get_font_size(&fw, &fh, size);
   for (int i = 0; i < len; i++) {
     uint8_t C = (uint8_t)text[i];
     if (C == '\r' && text[i + 1] == '\n') {
       i++;
       cx = x;
-      cy += fheight * size + spacing * size;
+      cy += fh;
       if (cy > WINDOW_HEIGHT) {
         cy = y;
       }
       continue;
     }
-    gfx_draw_char(C, cx, cy, size, f.data, fwidth, fheight);
-    cx += fwidth * size + spacing * size;
+    gfx_draw_char(C, cx, cy, size);
+    cx += fw;
     if (cx > WINDOW_WIDTH) {
       cx = x;
-      cy += fheight * size + spacing * size;
+      cy += fh;
     }
   }
-  cy += fheight * size + spacing * size;
+  cy += fh;
   return cy;
 }
 
@@ -151,17 +156,17 @@ int gfx_printf(const char * format, ...) {
 
 int gfx_font_table(int x, int y, int size) {
   if (_font == NULL) return y;
-  font_t f = *_font;
+  int fw, fh;
+  gfx_get_font_size(&fw, &fh, size);
   char t[2] = {0, 0};
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 32; j++) {
       t[0] = i * 32 + j;
-      if ((uint8_t)t[0] >= f.count) break;
-      gfx_draw_char(t[0], x + j * (f.width * size + spacing * size),
-                    y + i * (f.height * size + spacing * size), size, f.data, f.width, f.height);
+      if ((uint8_t)t[0] >= _font->count) break;
+      gfx_draw_char(t[0], x + j * fw, y + i * fh, size);
     }
   }
-  return y + 8 * (f.height * size + spacing * size);
+  return y + 8 * fh;
 }
 
 unsigned int _seed = 12345;

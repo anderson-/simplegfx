@@ -32,13 +32,17 @@ int gfxt_println(const char *str);
 int gfxt_printf(const char *format, ...);
 void gfxt_clear();
 char gfxt_getchar();
+char gfxt_getchar_nb();
 char* gfxt_gets(char *str, int count);
 int gfxt_scanf(const char *format, ...);
 void gfxt_set_theme(int theme);
-int gfxt_draw(int x, int y, int size);
+int gfxt_draw(void);
 void gfxt_on_key(uint8_t key);
 void gfxt_set_busy(int busy);
 void gfxt_get_size(int *w, int *h);
+void gfxt_set_rendering(int rendering);
+void gfxt_set_drawing_params(int offset_x, int offset_y, int font_size);
+void gfxt_get_drawing_params(int *offset_x, int *offset_y, int *font_size);
 
 #ifdef EXPORT_STDIO
 #define putchar gfxt_putchar

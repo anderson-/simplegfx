@@ -39,26 +39,23 @@ char* get_prompt(void) {
   return "\x1b[32msimplegfx\x1b[m:\x1b[34m~\x1b[m$ ";
 }
 
-int x = 0;
-int y = 0;
-int fsize = 3;
-
 void gfx_app(int init) {
-  font_t * f = gfx_get_font();
-  int fw = (f->width + 1) * fsize;
-  int fh = (f->height + 1) * fsize;
+  int fsize = 3;
+  int fw, fh;
+  gfx_get_font_size(&fw, &fh, fsize);
   int w = WINDOW_WIDTH / fw;
   int h = WINDOW_HEIGHT / fh;
-  x = (WINDOW_WIDTH - w * fw) / 2;
-  y = (WINDOW_HEIGHT - h * fh) / 2;
+  int x = (WINDOW_WIDTH - w * fw) / 2;
+  int y = (WINDOW_HEIGHT - h * fh) / 2;
   gfxt_set_prompt_handler(get_prompt);
   gfxt_set_history_handler(history_push_fn, history_prev_fn);
   gfxt_std_cmd_reg();
   gfxt_init(w, h);
+  gfxt_set_drawing_params(x, y, fsize);
 }
 
 int gfx_draw(float fps) {
-  return gfxt_draw(x, y, fsize);
+  return gfxt_draw();
 }
 
 char last_key = 0;

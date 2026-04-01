@@ -19,6 +19,9 @@ int gfxt_cmd_registry_len = 0;
 static const char spinner[] = "\xdc\xdd\xdf\xde";
 static int width = 40;
 static int height = 12;
+static int offset_x = 0;
+static int offset_y = 0;
+static int font_size = 3;
 static int buffer_size = 0;
 static int initialized = 0;
 static char * buffer = NULL;
@@ -42,6 +45,7 @@ static int bg_color = 0;
 static int pos_x = 0;
 static int pos_y = 0;
 volatile char gfxt_stdin = 1;
+int gfxt_stdin_state = 0;
 int cursor_color = 7;
 int frame = 0;
 int scroll = 0;
@@ -54,6 +58,7 @@ static int key_input_process = 0;
 static int pager_lines = 0;
 static int pager_quit = 0;
 static int pager_waiting = 0;
+static int rendering = 0;
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
   if (gfxt_cmd_registry_len < MAX_COMMANDS) {
@@ -119,13 +124,15 @@ static void _prompt() {
 void gfxt_init(int w_chars, int h_chars) {
   if (buffer != NULL) {
     free(buffer);
+    buffer = NULL;
   }
   if (w_chars <= 0 || h_chars <= 0) {
+    initialized = 0;
     return;
   }
   width = w_chars;
   height = h_chars;
-  eval_fn = gfxt_run_cmd;
+  eval_fn = eval_fn ? eval_fn : gfxt_run_cmd;
   buffer_size = width * height * 2;
   buffer = malloc(buffer_size);
   if (buffer == NULL) return;
@@ -511,6 +518,14 @@ char gfxt_getchar() {
   return gfxt_stdin;
 }
 
+char gfxt_getchar_nb() {
+  if (busy) {
+    busy = 0;
+    gfxt_stdin = 0;
+  }
+  return gfxt_stdin;
+}
+
 char* gfxt_gets(char *str, int count) {
   if (!str) return NULL;
   int i = 0;
@@ -573,8 +588,9 @@ void gfxt_set_theme(int theme) {
   ansi_set_theme(theme);
 }
 
-int gfxt_draw(int x, int y, int size) {
+int gfxt_draw() {
   if (!initialized) return 0;
+  if (rendering) return 0;
   frame++;
   if (busy) busy++;
   if (frame % 10 == 1) {
@@ -588,17 +604,17 @@ int gfxt_draw(int x, int y, int size) {
   pos_x = 0;
   pos_y = 0;
   ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
-  font_t f = *gfx_get_font();
-  int fheight = (f.height + spacing) * size;
-  int fwidth = (f.width + spacing) * size;
+  int fwidth, fheight;
+  gfx_get_font_size(&fwidth, &fheight, font_size);
   ansi_set_color(bg_color);
-  gfx_fill_rect(x, y, fwidth * width, fheight * height);
+  gfx_fill_rect(offset_x, offset_y, fwidth * width, fheight * height);
   int i = 0;
   char c = buffer[i];
   while (1) {
+    if (rendering) return 0;
     c = _process_ansi(c);
-    int px = x + pos_x * fwidth;
-    int py = y + pos_y * fheight;
+    int px = offset_x + pos_x * fwidth;
+    int py = offset_y + pos_y * fheight;
     if (c) {
       ansi_set_color(bg_color);
       gfx_fill_rect(px, py, fwidth, fheight);
@@ -607,37 +623,37 @@ int gfxt_draw(int x, int y, int size) {
         if (busy > 5 && i >= input_start && i < cursor) {
           ansi_set_color(8);
         }
-        gfx_draw_char(c, px, py, size, f.data, f.width, f.height);
+        gfx_draw_char(c, px, py, font_size);
       }
     }
 #ifdef DEBUG
     if (i >= input_start && i < cursor) {
       ansi_set_color(3);
-      int px = x + pos_x * fwidth;
-      int py = y + pos_y * fheight;
-      gfx_fill_rect(px, py, fwidth, size);
+      int px = offset_x + pos_x * fwidth;
+      int py = offset_y + pos_y * fheight;
+      gfx_fill_rect(px, py, fwidth, font_size);
     }
     if (i >= 0 && i < first_line_end) {
       ansi_set_color(4);
-      int px = x + pos_x * fwidth;
-      int py = y + pos_y * fheight;
-      gfx_fill_rect(px, py + size, fwidth, size);
+      int px = offset_x + pos_x * fwidth;
+      int py = offset_y + pos_y * fheight;
+      gfx_fill_rect(px, py + font_size, fwidth, font_size);
     }
     if (i > last_line_start && i < cursor) {
       ansi_set_color(5);
-      int px = x + pos_x * fwidth;
-      int py = y + pos_y * fheight;
-      gfx_fill_rect(px, py + size * 2, fwidth, size);
+      int px = offset_x + pos_x * fwidth;
+      int py = offset_y + pos_y * fheight;
+      gfx_fill_rect(px, py + font_size * 2, fwidth, font_size);
     }
 #endif
     if (busy > 5 && busy_cursor == i) {
       int spin_idx = (frame/2) % 4;
       char spin_char = spinner[spin_idx];
       ansi_set_color(8);
-      gfx_draw_char(spin_char, x + pos_x * fwidth, y + pos_y * fheight, size, f.data, f.width, f.height);
+      gfx_draw_char(spin_char, offset_x + pos_x * fwidth, offset_y + pos_y * fheight, font_size);
     } else if (draw_cursor == i && frame % 20 < 10) {
-      int px = x + pos_x * fwidth;
-      int py = y + pos_y * fheight;
+      int px = offset_x + pos_x * fwidth;
+      int py = offset_y + pos_y * fheight;
       gfx_fill_rect(px, py, fwidth, fheight);
     }
     if (c) _update_xy(c, &pos_x, &pos_y, 0);
@@ -646,23 +662,23 @@ int gfxt_draw(int x, int y, int size) {
   }
   if (pager_waiting) {
     static const char* more_str = "--- more (q quit) ---";
-    int py = y + (height - 1) * fheight;
+    int py = offset_y + (height - 1) * fheight;
     ansi_set_color(8);
-    gfx_fill_rect(x, py, fwidth * width, fheight);
+    gfx_fill_rect(offset_x, py, fwidth * width, fheight);
     ansi_set_color(0);
-    int mx = x;
+    int mx = offset_x;
     for (const char *p = more_str; *p; p++) {
-      gfx_draw_char(*p, mx, py + size, size, f.data, f.width, f.height);
+      gfx_draw_char(*p, mx, py + font_size, font_size);
       mx += fwidth;
     }
   } else if (!busy && draw_cursor == i && frame % 20 < 10) {
     ansi_set_color(cursor_color);
-    int px = x + pos_x * fwidth;
-    int py = y + pos_y * fheight;
+    int px = offset_x + pos_x * fwidth;
+    int py = offset_y + pos_y * fheight;
     gfx_fill_rect(px, py, fwidth, fheight);
   }
   change--;
-  return 1;
+  return !rendering;
 }
 
 void gfxt_on_key(uint8_t key) {
@@ -670,6 +686,33 @@ void gfxt_on_key(uint8_t key) {
   change = 1;
 
   if (!gfxt_stdin) {
+    if (key == '\x1b' && gfxt_stdin_state == 0) {
+      gfxt_stdin_state = 1;
+      return;
+    } else if (gfxt_stdin_state == 1) {
+      if (key == '[') {
+        gfxt_stdin_state = 2;
+        return;
+      }
+      gfxt_stdin_state = 0;
+    } else if (gfxt_stdin_state == 2) {
+      switch (key) {
+        case 'A':
+          gfxt_stdin = ANSI_CURSOR_UP;
+          break;
+        case 'B':
+          gfxt_stdin = ANSI_CURSOR_DOWN;
+          break;
+        case 'C':
+          gfxt_stdin = ANSI_CURSOR_RIGHT;
+          break;
+        case 'D':
+          gfxt_stdin = ANSI_CURSOR_LEFT;
+          break;
+      }
+      gfxt_stdin_state = 0;
+      return;
+    }
     gfxt_stdin = key;
     return;
   }
@@ -686,6 +729,22 @@ void gfxt_set_busy(int _busy) {
 void gfxt_get_size(int *w, int *h) {
   if (w) *w = width;
   if (h) *h = height;
+}
+
+void gfxt_set_drawing_params(int _offset_x, int _offset_y, int _font_size) {
+  offset_x = _offset_x;
+  offset_y = _offset_y;
+  font_size = _font_size;
+}
+
+void gfxt_get_drawing_params(int *_offset_x, int *_offset_y, int *_font_size) {
+  if (_offset_x) *(_offset_x) = offset_x;
+  if (_offset_y) *(_offset_y) = offset_y;
+  if (_font_size) *(_font_size) = font_size;
+}
+
+void gfxt_set_rendering(int _rendering) {
+  rendering = _rendering;
 }
 
 #ifdef TEST

@@ -59,7 +59,8 @@ void gfx_fill_rect(int x, int y, int w, int h);
 // Text & Font functions
 void gfx_set_font(font_t * font);
 font_t * gfx_get_font(void);
-void gfx_draw_char(char c, int x, int y, int size, uint8_t * font_data, int font_width, int font_height);
+void gfx_get_font_size(int * width, int * height, int size);
+void gfx_draw_char(char c, int x, int y, int size);
 int gfx_text(const char * text, int x, int y, int size);
 int gfx_font_table(int x, int y, int size);
 int gfx_clear_text_buffer(void);

@@ -3,10 +3,8 @@
 #include "simplegfx.h"
 
 static int columns[80] = {0};
-static font_t font;
 
 void gfx_app(int init) {
-  font = *gfx_get_font();
   for (int i = 0; i < 80; i++) {
     columns[i] = rand() % WINDOW_HEIGHT;
   }
@@ -29,7 +27,7 @@ static void draw_matrix() {
         } else {
           gfx_set_color(0, brightness, 0);
         }
-        gfx_draw_char(rand() % 94 + 33, x, y, 1, font.data, font.width, font.height);
+        gfx_draw_char(rand() % 94 + 33, x, y, 1);
       }
     }
   }

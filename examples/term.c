@@ -65,7 +65,16 @@ char last_key = 0;
 #define KEY_BACKSPACE 8
 #define KEY_DELETE 127
 
+int ctrl_pressed = 0;
+
 int gfx_on_key(char key, int down) {
+  if (key == KEY_CTRL) {
+    ctrl_pressed = down;
+    return 0;
+  } else if (key == 'd' && ctrl_pressed) {
+    exit(0);
+  }
+
   if (!down) {
     last_key = 0;
     return 0;

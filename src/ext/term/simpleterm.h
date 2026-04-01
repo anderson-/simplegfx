@@ -41,6 +41,7 @@ void gfxt_on_key(uint8_t key);
 void gfxt_set_busy(int busy);
 void gfxt_get_size(int *w, int *h);
 void gfxt_set_rendering(int rendering);
+void gfxt_set_overlay(int (*overlay_fn)(void));
 void gfxt_set_drawing_params(int offset_x, int offset_y, int font_size);
 void gfxt_get_drawing_params(int *offset_x, int *offset_y, int *font_size);
 

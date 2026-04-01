@@ -59,6 +59,7 @@ static int pager_lines = 0;
 static int pager_quit = 0;
 static int pager_waiting = 0;
 static int rendering = 0;
+static int (*overlay_fn)(void) = NULL;
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
   if (gfxt_cmd_registry_len < MAX_COMMANDS) {
@@ -589,6 +590,7 @@ void gfxt_set_theme(int theme) {
 }
 
 int gfxt_draw() {
+  if (overlay_fn && overlay_fn()) return 1;
   if (!initialized) return 0;
   if (rendering) return 0;
   frame++;
@@ -745,6 +747,10 @@ void gfxt_get_drawing_params(int *_offset_x, int *_offset_y, int *_font_size) {
 
 void gfxt_set_rendering(int _rendering) {
   rendering = _rendering;
+}
+
+void gfxt_set_overlay(int (*_overlay_fn)(void)) {
+  overlay_fn = _overlay_fn;
 }
 
 #ifdef TEST

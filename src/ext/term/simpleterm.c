@@ -698,16 +698,16 @@ void gfxt_on_key(uint8_t key) {
     } else if (gfxt_stdin_state == 2) {
       switch (key) {
         case 'A':
-          gfxt_stdin = ANSI_CURSOR_UP;
+          gfxt_stdin = EVT_KEY_UP;
           break;
         case 'B':
-          gfxt_stdin = ANSI_CURSOR_DOWN;
+          gfxt_stdin = EVT_KEY_DOWN;
           break;
         case 'C':
-          gfxt_stdin = ANSI_CURSOR_RIGHT;
+          gfxt_stdin = EVT_KEY_RIGHT;
           break;
         case 'D':
-          gfxt_stdin = ANSI_CURSOR_LEFT;
+          gfxt_stdin = EVT_KEY_LEFT;
           break;
       }
       gfxt_stdin_state = 0;

@@ -1,4 +1,5 @@
 #include "simplegfx.h"
+#include <signal.h>
 
 #if defined(GFX_SDL) || defined(GFX_SDL2)
 
@@ -11,9 +12,17 @@ static int sr = 16000;
 double volume = 0.2;
 static int fadein = 256;
 static int fadeout = 256;
+static int exit_app = 0;
+
+void signal_handler(int sig) {
+  exit_app = 1;
+}
 
 #undef main
 int main(int argc, char* argv[]) {
+  signal(SIGTERM, signal_handler);
+  signal(SIGINT, signal_handler);
+  signal(SIGHUP, signal_handler);
   if (gfx_setup() != 0) {
     return 1;
   }
@@ -209,21 +218,43 @@ static uint32_t start;
 static uint32_t busytime = 0;
 static float fps = GFX_FPS;
 static SDL_Event event;
+static int pwrclicks = 0;
+static int pwrdown = 0;
 
 static void loop() {
   start = SDL_GetTicks();
   while (SDL_PollEvent(&event)) {
+    char key = (char)event.key.keysym.sym;
     if (event.type == SDL_QUIT) {
       exit(0);
       return;
     } else if (event.type == SDL_KEYDOWN) {
-      if (gfx_on_key(event.key.keysym.sym, 1) != 0) {
-        return;
-      } else if (event.key.keysym.sym == BTN_POWER) {
+      if (key == BTN_GP_POWER_ESC) {
+        pwrdown = 1;
+      } else {
+        pwrclicks = 0;
+        pwrdown = 0;
+      }
+      if (gfx_on_key(key, 1) != 0) {
+        exit_app = 1;
         return;
       }
     } else if (event.type == SDL_KEYUP) {
-      if (gfx_on_key(event.key.keysym.sym, 0) != 0) {
+      if (key == BTN_GP_POWER_ESC) {
+        if (pwrdown) {
+          pwrclicks++;
+          pwrdown = 0;
+          if (pwrclicks >= 3) {
+            exit_app = 1;
+            return;
+          }
+        }
+      } else {
+        pwrclicks = 0;
+        pwrdown = 0;
+      }
+      if (gfx_on_key(key, 0) != 0) {
+        exit_app = 1;
         return;
       }
     }
@@ -254,7 +285,7 @@ void gfx_run(void) {
 
   gfx_app(1);
 
-  while (1) {
+  while (!exit_app) {
     loop();
   }
 }

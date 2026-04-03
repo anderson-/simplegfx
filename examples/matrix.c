@@ -41,7 +41,7 @@ int gfx_draw(float fps) {
 }
 
 int gfx_on_key(char key, int down) {
-  if (key == BTN_MENU) {
+  if (key == BTN_GP_MENU) {
     return 1;
   }
 

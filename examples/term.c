@@ -59,16 +59,10 @@ int gfx_draw(float fps) {
 }
 
 char last_key = 0;
-
-#define KEY_CTRL -32
-#define KEY_ENTER 13
-#define KEY_BACKSPACE 8
-#define KEY_DELETE 127
-
 int ctrl_pressed = 0;
 
 int gfx_on_key(char key, int down) {
-  if (key == KEY_CTRL) {
+  if (key == BTN_KB_CTRL) {
     ctrl_pressed = down;
     return 0;
   } else if (key == 'd' && ctrl_pressed) {
@@ -85,38 +79,41 @@ int gfx_on_key(char key, int down) {
 #endif
 
   switch (key) {
-    case BTN_UP:
+    case BTN_KB_UP:
       gfxt_on_key('\x1b');
       gfxt_on_key('[');
       gfxt_on_key('A');
       return 0;
-    case BTN_DOWN:
+    case BTN_KB_DOWN:
       gfxt_on_key('\x1b');
       gfxt_on_key('[');
       gfxt_on_key('B');
       return 0;
-    case BTN_LEFT:
+    case BTN_KB_LEFT:
       gfxt_on_key('\x1b');
       gfxt_on_key('[');
       gfxt_on_key('D');
       return 0;
-    case BTN_RIGHT:
+    case BTN_KB_RIGHT:
       gfxt_on_key('\x1b');
       gfxt_on_key('[');
       gfxt_on_key('C');
       return 0;
-    case KEY_CTRL:
+    case BTN_KB_CTRL:
       gfxt_on_key('\x1b');
       gfxt_on_key('[');
       return 0;
-    case KEY_ENTER:
+    case BTN_KB_ENTER:
       gfxt_on_key('\n');
       return 0;
-    case KEY_BACKSPACE:
+    case BTN_KB_BACKSPACE:
       gfxt_on_key('\b');
       return 0;
-    case KEY_DELETE:
+    case BTN_KB_DELETE:
       gfxt_on_key('\x7f');
+      return 0;
+    case BTN_KB_ESCAPE:
+      gfxt_on_key(EVT_KEY_ESCAPE);
       return 0;
   }
 
@@ -128,10 +125,10 @@ int gfx_on_key(char key, int down) {
 
   // Exit on MENU+X
   static int menu_pressed = 0;
-  if (key == BTN_MENU) {
+  if (key == BTN_GP_MENU) {
     menu_pressed = down ? 1 : 0;
   }
-  if (menu_pressed && key == BTN_X && down) {
+  if (menu_pressed && key == BTN_GP_X && down) {
     return 1;
   }
 

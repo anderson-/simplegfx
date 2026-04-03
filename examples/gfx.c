@@ -22,6 +22,7 @@ void gfx_app(int init) {
     printf("App stopped\n");
   }
 }
+
 int draw_mandelbrot_set() {
   gfx_clear_text_buffer();
   mb = 1;
@@ -86,9 +87,9 @@ int gfx_draw(float fps) {
   gfx_set_color(255, 255, 255);
   if (last_key != 0) {
     if (keyinfo) {
-      sprintf(text, "key: %s/%d", keyinfo->name, last_key);
+      sprintf(text, "key: %s/%d/'%c'", keyinfo->name, last_key, last_key);
     } else {
-      sprintf(text, "key: %d", last_key);
+      sprintf(text, "key: %d/'%c'", last_key, last_key);
     }
     gfx_text(text, 10, 10, 2);
   } else {
@@ -121,10 +122,12 @@ int gfx_on_key(char key, int down) {
       gfx_printf("+%d ", key);
     }
     beep(261, 50);
-    if (key == BTN_MENU) {
+    if (key == BTN_GP_MENU) {
+      printf("MENU pressed\n");
       menu = 1;
     }
-    if (menu && key == BTN_X) {
+    if (menu && key == BTN_GP_X) {
+      printf("X pressed in menu\n");
       return 1;
     }
     last_key = key;
@@ -135,10 +138,10 @@ int gfx_on_key(char key, int down) {
       gfx_printf("-%d ", key);
     }
     beep(392, 50);
-    if (key == BTN_MENU) {
+    if (key == BTN_GP_MENU) {
       gfx_clear_text_buffer();
       menu = 0;
-    } else if (key == BTN_B) {
+    } else if (key == BTN_GP_B) {
       draw_mandelbrot_set();
     }
     last_key = 0;

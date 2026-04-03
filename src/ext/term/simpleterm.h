@@ -10,6 +10,13 @@ extern volatile char gfxt_stdin;
 
 #define MAX_COMMANDS 64
 
+#define EVT_KEY_NONE        0
+#define EVT_KEY_ESCAPE      1
+#define EVT_KEY_UP          2
+#define EVT_KEY_DOWN        3
+#define EVT_KEY_LEFT        4
+#define EVT_KEY_RIGHT       5
+
 typedef struct {
   const char* name;
   int (*func)(const char*);

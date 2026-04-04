@@ -13,6 +13,9 @@ SimpleGFX is a straightforward tool designed to help you create graphics using S
 
 ![GFX](build/gfx.png)
 ![Matrix](build/matrix.png)
+![Simpleterm](build/simpleterm.png)
+![CLI](build/cli.png)
+![Dialogs](build/dialogs.png)
 
 ## System Requirements
 

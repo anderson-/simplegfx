@@ -53,12 +53,22 @@ static int draw_cursor = 0;
 static int history_index = -1;
 static int busy = 0;
 static int busy_cursor = 0;
-static int change = 0;
+static int display_refresh = 0;
 static int key_input_process = 0;
 static int pager_lines = 0;
 static int pager_quit = 0;
 static int pager_waiting = 0;
 static int rendering = 0;
+static void (*overlay_fn)(void) = NULL;
+
+#ifdef DEBUG
+#define _refresh_display() do { \
+  display_refresh = GFX_DISPLAY_BUFFER_COUNT; \
+  printf("refresh display %d\n", __LINE__); \
+} while(0)
+#else
+#define _refresh_display() display_refresh = GFX_DISPLAY_BUFFER_COUNT;
+#endif
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
   if (gfxt_cmd_registry_len < MAX_COMMANDS) {
@@ -331,7 +341,7 @@ void _fetch_history(int direction) {
 }
 
 void gfxt_putchar(char c) {
-  change = 2;
+  _refresh_display();
   _check_resize();
   if (scroll) {
     _scroll_line();
@@ -373,7 +383,7 @@ void gfxt_putchar(char c) {
         if (pager_lines >= height - 2) {
           pager_lines = 0;
           pager_waiting = 1;
-          change = 2;
+          _refresh_display();
           char k = gfxt_getchar();
           pager_waiting = 0;
           if (k == 'q' || k == 'Q') {
@@ -593,14 +603,22 @@ int gfxt_draw() {
   if (rendering) return 0;
   frame++;
   if (busy) busy++;
-  if (frame % 10 == 1) {
-    change = 2;
-  } else if (busy > 5) {
-    change = 2;
+  if (!overlay_fn) {
+    if (frame % 10 == 1) {
+      _refresh_display();
+    } else if (busy > 5) {
+      _refresh_display();
+    }
   }
-  if (!change) {
+  if (!display_refresh) {
     return 0;
   }
+#ifdef DEBUG
+  printf("[%05d] draw %d\n", frame, display_refresh);
+  if (display_refresh == 1) {
+    printf("[%05d] stop --------------------------------\n", frame);
+  }
+#endif
   pos_x = 0;
   pos_y = 0;
   ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
@@ -620,7 +638,7 @@ int gfxt_draw() {
       gfx_fill_rect(px, py, fwidth, fheight);
       if (c != ' ' && c != '\n') {
         ansi_set_color(fg_color);
-        if (busy > 5 && i >= input_start && i < cursor) {
+        if ((busy > 5 && i >= input_start && i < cursor) || overlay_fn) {
           ansi_set_color(8);
         }
         gfx_draw_char(c, px, py, font_size);
@@ -671,19 +689,20 @@ int gfxt_draw() {
       gfx_draw_char(*p, mx, py + font_size, font_size);
       mx += fwidth;
     }
-  } else if (!busy && draw_cursor == i && frame % 20 < 10) {
+  } else if (!overlay_fn && !busy && draw_cursor == i && frame % 20 < 10) {
     ansi_set_color(cursor_color);
     int px = offset_x + pos_x * fwidth;
     int py = offset_y + pos_y * fheight;
     gfx_fill_rect(px, py, fwidth, fheight);
   }
-  change--;
+  display_refresh--;
+  if (overlay_fn) overlay_fn();
   return !rendering;
 }
 
 void gfxt_on_key(uint8_t key) {
   if (!initialized) return;
-  change = 1;
+  _refresh_display();
 
   if (!gfxt_stdin) {
     if (key == '\x1b' && gfxt_stdin_state == 0) {
@@ -745,6 +764,15 @@ void gfxt_get_drawing_params(int *_offset_x, int *_offset_y, int *_font_size) {
 
 void gfxt_set_rendering(int _rendering) {
   rendering = _rendering;
+}
+
+void gfxt_refresh_display(void) {
+  _refresh_display();
+}
+
+void gfxt_set_overlay(void (*_overlay_fn)(void)) {
+  overlay_fn = _overlay_fn;
+  _refresh_display();
 }
 
 #ifdef TEST

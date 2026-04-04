@@ -100,6 +100,10 @@ void beep(int freq, int ms);
 extern double volume;
 #endif
 
+#ifndef GFX_DISPLAY_BUFFER_COUNT
+#define GFX_DISPLAY_BUFFER_COUNT 2
+#endif
+
 // Callbacks to be implemented by the user app
 extern void gfx_app(int init);
 extern int gfx_draw(float fps);

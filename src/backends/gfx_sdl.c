@@ -1,5 +1,6 @@
 #include "simplegfx.h"
 #include <signal.h>
+#include <time.h>
 
 #if defined(GFX_SDL) || defined(GFX_SDL2)
 
@@ -220,6 +221,9 @@ static float fps = GFX_FPS;
 static SDL_Event event;
 static int pwrclicks = 0;
 static int pwrdown = 0;
+#ifdef SCREENSHOT
+static int screenshot_trigger = 0;
+#endif
 
 static void loop() {
   start = SDL_GetTicks();
@@ -265,6 +269,15 @@ static void loop() {
 #else
   SDL_Flip(screen);
 #endif
+#ifdef SCREENSHOT
+    screenshot_trigger++;
+    if (screenshot_trigger % 60 == 0) {
+      char filename[256];
+      time_t now = time(NULL);
+      snprintf(filename, sizeof(filename), "build/screenshot_%06ld.bmp", (long)now);
+      gfx_screenshot(filename);
+    }
+#endif
     gfx_clear();
   }
 
@@ -290,9 +303,12 @@ void gfx_run(void) {
   }
 }
 
+#ifdef SCREENSHOT
 void gfx_screenshot(const char * filename) {
 #ifdef GFX_SDL2
-  SDL_Surface * s = SDL_CreateRGBSurface(0, WINDOW_WIDTH, WINDOW_HEIGHT, 32, 0, 0, 0, 0);
+  SDL_Surface * s = SDL_CreateRGBSurfaceWithFormat(
+    0, WINDOW_WIDTH, WINDOW_HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888
+  );
   SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, s->pixels, s->pitch);
   SDL_SaveBMP(s, filename);
   SDL_FreeSurface(s);
@@ -300,6 +316,7 @@ void gfx_screenshot(const char * filename) {
   SDL_SaveBMP(screen, filename);
 #endif
 }
+#endif
 
 void gfx_delay(int ms) {
   SDL_Delay(ms);

@@ -69,15 +69,15 @@ $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-debug)): %-debug:
 
 # ── screenshot builds ────────────────────────────────────────────────────────
 
-.PHONY: $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot))
-$(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot)): %-screenshot:
+.PHONY: $(foreach p,sdl sdl1.2,$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot))
+$(foreach p,sdl sdl1.2,$(foreach e,$(EXAMPLES),$(p)-$(e)-screenshot)): %-screenshot:
 	$(eval PLAT := $(firstword $(subst -, ,$*)))
 	$(eval EXAM := $(patsubst $(PLAT)-%,%,$*))
 	mkdir -p ${BUILD}
 	${CC} examples/$(EXAM).c ${SOURCES} ${CFLAGS} ${PLATFORM_FLAGS_$(PLAT)} -DSCREENSHOT -o ${BUILD}/$*-screenshot
 	chmod +x ${BUILD}/$*-screenshot
 	./${BUILD}/$*-screenshot
-	convert ${BUILD}/screenshot.bmp ${BUILD}/$*-screenshot.png
+	magick ${BUILD}/screenshot*.bmp ${BUILD}/$*-screenshot.png
 
 # ── run ──────────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ $(addprefix rg35xx-,$(EXAMPLES)): rg35xx-%:
 .PHONY: $(foreach e,$(EXAMPLES),.rg35xx-$(e)-launcher)
 $(foreach e,$(EXAMPLES),.rg35xx-$(e)-launcher): .rg35xx-%-launcher:
 	mkdir -p ${BUILD}
-	printf '#!/bin/sh\nHOME=$$(dirname "$$0")/$*\ncd $$HOME\nLD_PRELOAD=./j2k.so ./rg35xx-$*.rg35xx\n' > ${BUILD}/rg35xx-$*.sh
+	printf '#!/bin/sh\ncd ${APPS}/$*\nSDL_NOMOUSE=1 LD_PRELOAD=./j2k.so ./rg35xx-$*.rg35xx\n' > ${BUILD}/rg35xx-$*.sh
 	chmod +x ${BUILD}/rg35xx-$*.sh
 
 # Deploy zip
@@ -139,6 +139,19 @@ $(foreach e,$(EXAMPLES),rg35xx-$(e)-adb-install): rg35xx-%-adb-install: .check-a
 	${ADB} shell chmod 755 ${APPS}/$*/rg35xx-$*.rg35xx
 	${ADB} shell chmod 755 ${APPS}/$*.sh
 
+.PHONY: $(foreach e,$(EXAMPLES),rg35xx-$(e)-run)
+$(foreach e,$(EXAMPLES),rg35xx-$(e)-run): rg35xx-%-run: rg35xx-%-adb-install
+	MAIN_PID=$$($(ADB) shell ps | awk '/\.\/main/{print $$2}'); \
+	LOOP_PID=$$($(ADB) shell ps | awk '/\.\/main/{print $$3}'); \
+	GRAND_PID=$$($(ADB) shell ps | awk -v p=$$LOOP_PID '$$2==p{print $$3}'); \
+	$(ADB) shell " \
+		trap 'kill -CONT $$GRAND_PID 2>/dev/null; kill -CONT $$LOOP_PID 2>/dev/null; exit' INT TERM HUP EXIT; \
+		kill -STOP $$GRAND_PID && kill -STOP $$LOOP_PID && \
+		kill $$MAIN_PID && \
+		busybox chroot /cfw /bin/sh -c \"${APPS}/$*.sh\"; \
+		kill -CONT $$GRAND_PID 2>/dev/null; kill -CONT $$LOOP_PID 2>/dev/null \
+	"
+
 .PHONY: $(foreach e,$(EXAMPLES),rg35xx-$(e)-adb-uninstall)
 $(foreach e,$(EXAMPLES),rg35xx-$(e)-adb-uninstall): rg35xx-%-adb-uninstall: .check-adb
 	${ADB} shell rm -rf ${APPS}/$*
@@ -148,6 +161,10 @@ $(foreach e,$(EXAMPLES),rg35xx-$(e)-adb-uninstall): rg35xx-%-adb-uninstall: .che
 $(foreach e,$(EXAMPLES),rg35xx-$(e)-adb-kill): rg35xx-%-adb-kill: .check-adb
 	${ADB} shell kill $$(${ADB} shell ps | grep rg35xx-$*.rg35xx | awk '{print $$2}')
 
-.PHONY: $(foreach e,$(EXAMPLES),rg35xx-$(e)-adb-logcat)
-$(foreach e,$(EXAMPLES),rg35xx-$(e)-adb-logcat): rg35xx-%-adb-logcat: .check-adb
+.PHONY: rg35xx-adb-logcat
+rg35xx-adb-logcat: .check-adb
 	${ADB} logcat
+
+.PHONY: rg35xx-adb-shell
+rg35xx-adb-shell: .check-adb
+	${ADB} shell

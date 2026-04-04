@@ -9,6 +9,7 @@ pkgs.mkShell {
     SDL2
     git
     android-tools
+    imagemagick
   ];
 
   shellHook = ''

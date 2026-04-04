@@ -102,8 +102,6 @@ void gfx_clear(void) {
   elm = 0;
 }
 
-void gfx_screenshot(const char *filename) { (void)filename; }
-
 void gfx_delay(int ms) {
   struct timespec ts = { ms / 1000, (ms % 1000) * 1000000L };
   nanosleep(&ts, NULL);

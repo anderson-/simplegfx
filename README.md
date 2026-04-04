@@ -9,21 +9,49 @@ SimpleGFX is a straightforward tool designed to help you create graphics using S
 - Basic text rendering functionality.
 - 16-bit tone generation for simple sound effects.
 - Minimal dependencies for portability and ease of use.
+- Can be used in embedded projects.
 
-![SimpleGFX](build/screenshot.png)
+![GFX](build/gfx.png)
+![Matrix](build/matrix.png)
 
 ## System Requirements
 
 ### macOS
 
-- Docker installed and set up.
-- SDL2 (`brew install sdl2`)
-- SDL 1.2 compatibility (`brew install sdl12-compat`)
+- For native development:
+  - GNU Make (check with `make --version`)
+- For RG35xx cross-compilation:
+  - Docker installed and set up
+- To use SDL backend you have the options:
+  1. Use nix:
+    - `nix-shell` (all dependencies will be set up automatically)
+  2. Install SDL2 and SDL 1.2 compatibility:
+    - SDL2 (`brew install sdl2`)
+    - SDL 1.2 compatibility (`brew install sdl12-compat`)
+    - ADB (`brew install android-platform-tools`)
 
 ### RG35xx
 
 - Onion OS 1.4.9
-- ADB enabled on the device
+- ADB enabled on the device (Consoles -> APPS -> Toggle_ADB)
+
+### Embedded Projects
+
+- Any platform that supports C/C++ and has a display driver.
+- Define `WINDOW_WIDTH` and `WINDOW_HEIGHT` constants.
+- Use `uint16_t* gfx_get_frame_buffer(void)` to get the frame buffer or implement your own backend.
+
+### Basic Runtime
+
+- Call `gfx_app(0 or more)` to run the application setup.
+- Call `gfx_app(-1)` to run the application cleanup.
+- Define a function `X`, that should:
+  - Check for input and call `int gfx_on_key(char key, int down)`
+  - Compute FPS and call `gfx_draw(float fps)` and `gfx_clear()`
+    - Note: if `gfx_draw` returns 0, the draw operation should be skipped.
+  - On remaining time until (1000ms / GFX_FPS) after draw you can:
+    - Busy-wait calling `gfx_process_data` passing the remaining time in milliseconds.
+    - Perform a optmized sleep using the sleep function provided by the platform.
 
 ## Installation
 
@@ -32,19 +60,27 @@ SimpleGFX is a straightforward tool designed to help you create graphics using S
 Run the following commands to build and test the application:
 
 ```bash
+# Using native (without nix)
+$ make macos-gfx-run
+
 # Using SDL2
-make gfx && ./build/gfx
+$ make sdl-gfx-run
 
 # Using SDL1.2
-make gfx1.2 && ./build/gfx
+$ make sdl1.2-gfx-run
+
+# Anbernic RG35xx
+$ make rg35xx-gfx-run
 ```
+
+> `$ make <plaform>-<example>-run`
 
 ### RG35xx
 
 To build and install the application on RG35xx:
 
 ```bash
-make RG35xx-adb-install
+make rg35xx-gfx-adb-install
 ```
 
 Ensure that ADB is properly configured and the device is connected before running this command.

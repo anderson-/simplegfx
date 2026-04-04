@@ -48,9 +48,6 @@ void gfx_run(void) {
   gfx_app(1);
 }
 
-void gfx_screenshot(const char * filename) {
-}
-
 void gfx_delay(int ms) {
 }
 

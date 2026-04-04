@@ -68,7 +68,6 @@ int gfx_printf(const char * format, ...);
 
 // Utils
 int gfx_fast_rand(void);
-void gfx_screenshot(const char * filename);
 void gfx_delay(int ms);
 
 extern unsigned int _seed;
@@ -93,6 +92,7 @@ uint16_t* gfx_get_frame_buffer(void);
 #endif
 void beep(int freq, int ms);
 extern double volume;
+void gfx_screenshot(const char * filename);
 #endif
 
 #if defined(GFX_MACOS)

@@ -1,5 +1,6 @@
 #pragma once
 #include "simpleterm.h"
+#include <string.h>
 
 int gfxt_cli_get_input(const char *question, char *buffer, int buffer_size) {
   if (question) gfxt_printf(TERM_CYAN "%s: " TERM_RESET, question);
@@ -54,11 +55,45 @@ int gfxt_cli_ask_yes_no(const char *question) {
   return c == 'y' || c == 'Y';
 }
 
-int gfxt_cli_select(const char *prompt, const char *question, const char **options, int option_count) {
+int gfxt_cli_select(const char *prompt, const char *question, const char **options, int option_count, int columns) {
   if (question) gfxt_printf("%s\n", question);
-  for (int i = 0; i < option_count; i++) {
-    gfxt_printf("  " TERM_CYAN "%d." TERM_RESET " %s\n", i + 1, options[i]);
+
+  if (columns <= 1) {
+    for (int i = 0; i < option_count; i++) {
+      gfxt_printf("  " TERM_CYAN "%d." TERM_RESET " %s\n", i + 1, options[i]);
+    }
+  } else {
+    int rows = (option_count + columns - 1) / columns;
+    int nd = (option_count >= 10) ? 2 : 1;
+
+    int max_text[columns];
+    memset(max_text, 0, sizeof(max_text));
+    for (int c = 0; c < columns; c++) {
+      for (int r = 0; r < rows; r++) {
+        int idx = c * rows + r;
+        if (idx < option_count) {
+          int len = strlen(options[idx]);
+          if (len > max_text[c]) max_text[c] = len;
+        }
+      }
+    }
+
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < columns; c++) {
+        int idx = c * rows + r;
+        if (idx < option_count) {
+          int ndi = (idx + 1 >= 10) ? 2 : 1;
+          gfxt_printf("  " TERM_CYAN "%d." TERM_RESET " %s", idx + 1, options[idx]);
+          if (c < columns - 1) {
+            int pad = (int)(nd - ndi) + (max_text[c] - (int)strlen(options[idx])) + 2;
+            for (int s = 0; s < pad; s++) gfxt_putchar(' ');
+          }
+        }
+      }
+      gfxt_printf("\n");
+    }
   }
+
   if (prompt) gfxt_printf(TERM_CYAN "%s: " TERM_RESET, prompt);
   char c = gfxt_getchar();
   if (c >= '1' && c < '1' + option_count) {
@@ -71,7 +106,7 @@ static int cmd_cli_demo(const char *args) {
   const char *options[] = {"Option 1", "Option 2", "Option 3"};
   int selected = -1;
   while (selected == -1) {
-    selected = gfxt_cli_select("Options", "Select an option", options, 3);
+    selected = gfxt_cli_select("Options", "Select an option", options, 3, 1);
     if (selected >= 0) {
       gfxt_printf("You selected: %s\n", options[selected]);
       break;

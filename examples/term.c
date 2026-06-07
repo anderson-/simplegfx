@@ -6,6 +6,7 @@
 #include "ext/term/stdcmds.h"
 #include "ext/term/dialogs.h"
 #include "ext/term/cliutils.h"
+#include "ext/term/statusbar.h"
 
 #define HISTORY_SIZE 50
 
@@ -41,6 +42,16 @@ char* get_prompt(void) {
   return "\x1b[32msimplegfx\x1b[m:\x1b[34m~\x1b[m$ ";
 }
 
+static char * statusbar(char *buf, int len) {
+  time_t t = time(NULL);
+  struct tm *tm = localtime(&t);
+  char tmp[32];
+  strftime(tmp, sizeof(tmp), "%H:%M:%S", tm);
+  snprintf(buf, len, TERM_BG_YELLOW TERM_BLACK " >term< "
+      TERM_BG_CYAN " %s | %lu" TERM_RESET, tmp, (unsigned long)t);
+  return buf;
+}
+
 void gfx_app(int init) {
   int fsize = 3;
   int fw, fh;
@@ -54,12 +65,13 @@ void gfx_app(int init) {
   gfxt_std_cmd_reg();
   dialog_cmd_reg();
   cliutils_cmd_reg();
-  gfxt_init(w, h);
-  gfxt_set_drawing_params(x, y, fsize);
+  gfxt_init(w, h - 1);
+  gfxt_set_drawing_params(x, y + fh, fsize);
   dialog_init();
 }
 
 int gfx_draw(float fps) {
+  gfxt_sb_draw(statusbar, 6);
   return gfxt_draw();
 }
 

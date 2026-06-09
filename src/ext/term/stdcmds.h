@@ -2,6 +2,7 @@
 
 #include "ansiutils.h"
 #include "simpleterm.h"
+#include "ext/audio/rtttl.h"
 #include <sys/time.h>
 #include <time.h>
 #include <stdio.h>
@@ -256,6 +257,27 @@ int cmd_boxdrawing(const char *args) {
   return 0;
 }
 
+int cmd_beep(const char *args) {
+  int frequency = 440;
+  int duration = 50;
+  sscanf(args, "%d %d", &frequency, &duration);
+  gfx_beep(frequency, duration);
+  return 0;
+}
+
+int cmd_play(const char *args) {
+  if (!args || !args[0]) {
+    gfxa_rtttl_play("scale_up:d=32,o=5,b=100:c,c#,d#,e,f#,g#,a#,b", NULL);
+    return 0;
+  }
+  int result = gfxa_rtttl_play(args, NULL);
+  if (result != 0) {
+    gfx_beep(880, 120);
+    gfxt_println(TERM_RED "invalid RTTTL format" TERM_RESET);
+  }
+  return result;
+}
+
 int cmd_help(const char *args) {
   for (int i = 0; i < gfxt_cmd_registry_len; i++) {
     gfxt_printf(TERM_CYAN " %s" TERM_RESET " \x1a %s\n", gfxt_cmd_registry[i].name, gfxt_cmd_registry[i].help);
@@ -278,5 +300,7 @@ void gfxt_std_cmd_reg() {
   gfxt_register_cmd("theme", "[id] set color theme", cmd_theme);
   gfxt_register_cmd("date", "current date/time", cmd_date);
   gfxt_register_cmd("boxdrawing", "print box drawing characters", cmd_boxdrawing);
+  gfxt_register_cmd("beep", "[freq] [ms] beep", cmd_beep);
+  gfxt_register_cmd("play", "[rtttl] play RTTTL melody", cmd_play);
   gfxt_register_cmd("help", "list available commands", cmd_help);
 }

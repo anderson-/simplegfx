@@ -10,19 +10,62 @@
 static uint8_t g_fb[FB_SIZE * 4];
 static uint8_t g_r = 255, g_g = 255, g_b = 255;
 static float g_fps = GFX_FPS;
-double volume = 0.2;
+double gfx_volume = 0.2;
+
+// Audio state — callback-driven, same pattern as SDL backend
 static AudioQueueRef audioQueue = NULL;
 static AudioStreamBasicDescription audioFormat;
+static double audioPhase = 0.0;
+static int audioPlaying = 0;
+static int audioSamples = 0;
+static int audioSampleCount = 0;
+static int audioFrequency = 0;
+static int audioSampleRate = 16000;
+static const int fadeSamples = 256; // 16ms (matches SDL)
 
 void audio_output_callback(void *inUserData, AudioQueueRef inAQ, AudioQueueBufferRef inBuffer) {
   (void)inUserData;
   (void)inAQ;
-  (void)inBuffer;
+  int16_t *buf = (int16_t *)inBuffer->mAudioData;
+  int len = inBuffer->mAudioDataByteSize / sizeof(int16_t);
+  // Initialize all samples to silence
+  memset(buf, 0, inBuffer->mAudioDataByteSize);
+  if (!audioPlaying) {
+    AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
+    return;
+  }
+  int genlen = len;
+  if (audioSampleCount + genlen > audioSamples) {
+    genlen = audioSamples - audioSampleCount;
+    if (genlen < 0) genlen = 0;
+  }
+  if (audioFrequency > 0) {
+    for (int i = 0; i < genlen; i++) {
+      double s = sin(2.0 * M_PI * audioPhase) * gfx_volume;
+      int si = audioSampleCount;
+      if (si < fadeSamples) {
+        s *= (double)si / fadeSamples;
+      } else if (audioSamples - si <= fadeSamples) {
+        s *= (double)(audioSamples - si) / fadeSamples;
+      }
+      int16_t v = (int16_t)(s * 32767.0);
+      if (v > 32767) v = 32767;
+      if (v < -32768) v = -32768;
+      buf[i] = v;
+      audioPhase += (double)audioFrequency / audioSampleRate;
+      if (audioPhase >= 1.0) audioPhase -= 1.0;
+      audioSampleCount++;
+    }
+  }
+  if (audioSamples > 0 && audioSampleCount >= audioSamples) {
+    audioPlaying = 0;
+  }
+  AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
 }
 
 void init_audio() {
   if (audioQueue != NULL) return;
-  audioFormat.mSampleRate = 44100.0;
+  audioFormat.mSampleRate = audioSampleRate;
   audioFormat.mFormatID = kAudioFormatLinearPCM;
   audioFormat.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
   audioFormat.mChannelsPerFrame = 1;
@@ -31,36 +74,37 @@ void init_audio() {
   audioFormat.mBytesPerFrame = audioFormat.mChannelsPerFrame * audioFormat.mBitsPerChannel / 8;
   audioFormat.mBytesPerPacket = audioFormat.mBytesPerFrame;
   AudioQueueNewOutput(&audioFormat, audio_output_callback, NULL, NULL, NULL, 0, &audioQueue);
+
+  // Prime 2 buffers so the callback keeps running
+  for (int i = 0; i < 2; i++) {
+    AudioQueueBufferRef buf;
+    AudioQueueAllocateBuffer(audioQueue, 512, &buf);
+    buf->mAudioDataByteSize = 512;
+    AudioQueueEnqueueBuffer(audioQueue, buf, 0, NULL);
+  }
+  AudioQueueStart(audioQueue, NULL);
 }
 
 void cleanup_audio() {
   if (audioQueue != NULL) {
+    AudioQueueStop(audioQueue, true);
     AudioQueueDispose(audioQueue, true);
     audioQueue = NULL;
   }
 }
 
-void beep(int freq, int ms) {
-  if (freq <= 0 || ms <= 0) return;
+void gfx_beep(int freq, int ms) {
+  if (ms <= 0) return;
   init_audio();
-  int sampleRate = 44100;
-  int durationSamples = (sampleRate * ms) / 1000;
-  int bufferSize = durationSamples * sizeof(int16_t);
-  int16_t *buffer = malloc(bufferSize);
-  if (buffer == NULL) return;
-  for (int i = 0; i < durationSamples; i++) {
-    float angle = 2.0 * M_PI * freq * i / sampleRate;
-    buffer[i] = (int16_t)(volume * 32767 * sin(angle));
+  audioFrequency = freq;
+  audioSamples = (ms > 0) ? audioSampleRate * ms / 1000 : 0;
+  audioSampleCount = 0;
+  audioPhase = 0.0;
+  audioPlaying = 1;
+  // Wait for callback to finish (same polling pattern as SDL)
+  while (audioPlaying) {
+    gfx_delay(1);
   }
-  AudioQueueBufferRef queueBuffer;
-  AudioQueueAllocateBuffer(audioQueue, bufferSize, &queueBuffer);
-  memcpy(queueBuffer->mAudioData, buffer, bufferSize);
-  queueBuffer->mAudioDataByteSize = bufferSize;
-  AudioQueueEnqueueBuffer(audioQueue, queueBuffer, 0, NULL);
-  AudioQueueStart(audioQueue, NULL);
-  AudioQueueFlush(audioQueue);
-  AudioQueueStop(audioQueue, false);
-  free(buffer);
 }
 
 void gfx_set_color(int r, int g, int b) {

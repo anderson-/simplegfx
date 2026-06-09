@@ -90,15 +90,12 @@ uint16_t* gfx_get_frame_buffer(void);
   #include <SDL/SDL.h>
   extern SDL_Surface * screen;
 #endif
-void beep(int freq, int ms);
-extern double volume;
 void gfx_screenshot(const char * filename);
 #endif
 
-#if defined(GFX_MACOS)
-void beep(int freq, int ms);
-extern double volume;
-#endif
+// Audio API — every platform can provide a beep implementation
+void gfx_beep(int freq, int ms);
+extern double gfx_volume;
 
 #ifndef GFX_DISPLAY_BUFFER_COUNT
 #define GFX_DISPLAY_BUFFER_COUNT 2

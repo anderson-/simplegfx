@@ -121,7 +121,7 @@ int gfx_on_key(char key, int down) {
     } else {
       gfx_printf("+%d ", key);
     }
-    beep(261, 50);
+    gfx_beep(261, 50);
     if (key == BTN_GP_MENU) {
       printf("MENU pressed\n");
       menu = 1;
@@ -137,7 +137,7 @@ int gfx_on_key(char key, int down) {
     } else {
       gfx_printf("-%d ", key);
     }
-    beep(392, 50);
+    gfx_beep(392, 50);
     if (key == BTN_GP_MENU) {
       gfx_clear_text_buffer();
       menu = 0;

@@ -51,7 +51,11 @@ void gfx_run(void) {
 void gfx_delay(int ms) {
 }
 
-//double volume = 0.2;
-//void beep(int freq, int ms) { (void)freq; (void)ms; }
+// Weak default — platforms with audio override via strong symbol
+__attribute__((weak)) void gfx_beep(int freq, int ms) {
+  (void)freq; (void)ms;
+}
+
+double gfx_volume = 0.2;
 
 #endif

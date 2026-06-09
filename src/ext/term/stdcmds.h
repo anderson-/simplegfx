@@ -278,6 +278,43 @@ int cmd_play(const char *args) {
   return result;
 }
 
+int cmd_watch(const char *args) {
+  int sec = 1, n = 0;
+  char cmd[128] = {0};
+
+  int matched = sscanf(args, "%d %d %127[^\n]", &sec, &n, cmd);
+  if (sec < 1) sec = 1;
+  int has_cmd = (matched >= 3 && cmd[0] != '\0');
+
+  gfxt_printf("watch every %ds", sec);
+  if (n > 0) gfxt_printf(" x %d", n);
+  if (has_cmd) gfxt_printf(": %s", cmd);
+  gfxt_printf("\n[press any key to stop]\n");
+
+  int count = 0;
+  while (n == 0 || count < n) {
+    if (has_cmd) {
+      gfxt_run_cmd(cmd);
+    } else {
+      gfx_beep(880, 50);
+    }
+    count++;
+    gfxt_stdin = 0;
+    struct timeval start;
+    gettimeofday(&start, NULL);
+    while (1) {
+      struct timeval now;
+      gettimeofday(&now, NULL);
+      long long elapsed = (now.tv_sec - start.tv_sec) * 1000000LL
+                        + (now.tv_usec - start.tv_usec);
+      if (elapsed >= sec * 1000000LL) break;
+      if (gfx_yeld) gfx_yeld();
+      if (gfxt_stdin) { gfxt_stdin = 0; gfxt_println("cancelled"); return 0; }
+    }
+  }
+  return 0;
+}
+
 int cmd_help(const char *args) {
   for (int i = 0; i < gfxt_cmd_registry_len; i++) {
     gfxt_printf(TERM_CYAN " %s" TERM_RESET " \x1a %s\n", gfxt_cmd_registry[i].name, gfxt_cmd_registry[i].help);
@@ -302,5 +339,6 @@ void gfxt_std_cmd_reg() {
   gfxt_register_cmd("boxdrawing", "print box drawing characters", cmd_boxdrawing);
   gfxt_register_cmd("beep", "[freq] [ms] beep", cmd_beep);
   gfxt_register_cmd("play", "[rtttl] play RTTTL melody", cmd_play);
+  gfxt_register_cmd("watch", "[s] [n] [cmd] run cmd periodically", cmd_watch);
   gfxt_register_cmd("help", "list available commands", cmd_help);
 }

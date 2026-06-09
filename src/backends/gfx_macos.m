@@ -252,6 +252,7 @@ static uint64_t mono_ns(void) {
   float el = (now - _last_ns) / 1e9f;
   _last_ns = now;
   if (el > 0) g_fps = 0.1f * (1.0f / el) + 0.9f * g_fps;
+  gfx_process_data((int)(el * 1000));
   if (gfx_draw(g_fps)) {
     [g_view setNeedsDisplay:YES];
     [g_view displayIfNeeded];

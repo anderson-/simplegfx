@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/select.h>
 #include "simplegfx.h"
 #include "ext/term/simpleterm.h"
 #include "ext/term/stdcmds.h"
@@ -41,6 +43,8 @@ char* history_prev_fn(int index) {
 char* get_prompt(void) {
   return "\x1b[32msimplegfx\x1b[m:\x1b[34m~\x1b[m$ ";
 }
+
+static int stdin_processed = 0;
 
 static char * statusbar(char *buf, int len) {
   time_t t = time(NULL);
@@ -153,4 +157,24 @@ int gfx_on_key(char key, int down) {
   return 0;
 }
 
-void gfx_process_data(int compute_time) {}
+void gfx_process_data(int compute_time) {
+  fd_set rfds;
+  struct timeval tv = {0, 0};
+  FD_ZERO(&rfds);
+  FD_SET(STDIN_FILENO, &rfds);
+
+  if (select(STDIN_FILENO + 1, &rfds, NULL, NULL, &tv) > 0) {
+    char buf[256];
+    int n = read(STDIN_FILENO, buf, sizeof(buf));
+    if (n > 0) {
+      stdin_processed = 1;
+      for (int i = 0; i < n; i++) {
+        if (buf[i] == '\r') {
+          gfxt_feed_char('\n');
+        } else {
+          gfxt_feed_char(buf[i]);
+        }
+      }
+    }
+  }
+}

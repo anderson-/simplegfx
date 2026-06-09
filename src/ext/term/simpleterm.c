@@ -348,11 +348,10 @@ void gfxt_putchar(char c) {
   }
   int action = ansi_feed(c, &putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
 
-#ifdef TERM_OUTPUT_STDOUT
-  printf("%c", c);
-#elif defined(DEBUG)
+#if defined(DEBUG)
   ansi_debug_char(c);
 #endif
+  printf("%c", c);
 
   if (action == NON_ANSI_CHAR) {
     _update_xy(c, &putchar_x, &putchar_y, 1);
@@ -738,6 +737,18 @@ void gfxt_on_key(uint8_t key) {
 
   key_input_process = 1;
   gfxt_putchar(key);
+  key_input_process = 0;
+}
+
+void gfxt_feed_char(char c) {
+  if (!initialized) return;
+  _refresh_display();
+  if (!gfxt_stdin) {
+    gfxt_stdin = c;
+    return;
+  }
+  key_input_process = 1;
+  gfxt_putchar(c);
   key_input_process = 0;
 }
 

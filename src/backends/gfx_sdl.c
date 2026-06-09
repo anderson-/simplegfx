@@ -263,6 +263,7 @@ static void loop() {
       }
     }
   }
+  gfx_process_data(SDL_GetTicks() - start);
   if (gfx_draw(fps)) {
 #ifdef GFX_SDL2
   SDL_RenderPresent(renderer);

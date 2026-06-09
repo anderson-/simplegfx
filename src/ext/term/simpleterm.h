@@ -45,6 +45,7 @@ int gfxt_scanf(const char *format, ...);
 void gfxt_set_theme(int theme);
 int gfxt_draw(void);
 void gfxt_on_key(uint8_t key);
+void gfxt_feed_char(char c);
 void gfxt_set_busy(int busy);
 void gfxt_get_size(int *w, int *h);
 void gfxt_set_rendering(int rendering);

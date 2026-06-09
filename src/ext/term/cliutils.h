@@ -3,6 +3,8 @@
 #include <string.h>
 
 int gfxt_cli_get_input(const char *question, char *buffer, int buffer_size) {
+  int pager_was_enabled = gfxt_get_pager_enabled();
+  gfxt_set_pager_enabled(0);
   if (question) gfxt_printf(TERM_CYAN "%s: " TERM_RESET, question);
   int index = 0;
   while (index < buffer_size - 1) {
@@ -22,6 +24,7 @@ int gfxt_cli_get_input(const char *question, char *buffer, int buffer_size) {
   }
   buffer[index] = '\0';
   gfxt_putchar('\n');
+  gfxt_set_pager_enabled(pager_was_enabled);
   return index;
 }
 
@@ -46,16 +49,21 @@ float gfxt_cli_get_float_input(const char *question) {
 }
 
 int gfxt_cli_ask_yes_no(const char *question) {
+  int pager_was_enabled = gfxt_get_pager_enabled();
+  gfxt_set_pager_enabled(0);
   if (question) gfxt_printf(TERM_CYAN "%s (" TERM_GREEN "y" TERM_CYAN "/" TERM_RED "N" TERM_CYAN "): " TERM_RESET, question);
   char c = 0;
   while (c != 'y' && c != 'n' && c != 'Y' && c != 'N') {
     c = gfxt_getchar();
   }
   gfxt_printf("%c\n", c);
+  gfxt_set_pager_enabled(pager_was_enabled);
   return c == 'y' || c == 'Y';
 }
 
 int gfxt_cli_select(const char *prompt, const char *question, const char **options, int option_count, int columns) {
+  int pager_was_enabled = gfxt_get_pager_enabled();
+  gfxt_set_pager_enabled(0);
   if (question) gfxt_printf("%s\n", question);
 
   if (columns <= 1) {
@@ -97,8 +105,10 @@ int gfxt_cli_select(const char *prompt, const char *question, const char **optio
   if (prompt) gfxt_printf(TERM_CYAN "%s: " TERM_RESET, prompt);
   char c = gfxt_getchar();
   if (c >= '1' && c < '1' + option_count) {
+    gfxt_set_pager_enabled(pager_was_enabled);
     return c - '1';
   }
+  gfxt_set_pager_enabled(pager_was_enabled);
   return -1;
 }
 

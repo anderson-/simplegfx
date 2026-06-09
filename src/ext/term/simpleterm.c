@@ -58,8 +58,11 @@ static int key_input_process = 0;
 static int pager_lines = 0;
 static int pager_quit = 0;
 static int pager_waiting = 0;
+static int pager_enabled = 1;
 static int rendering = 0;
 static void (*overlay_fn)(void) = NULL;
+
+static void _prompt(void);
 
 #ifdef DEBUG
 #define _refresh_display() do { \
@@ -117,6 +120,18 @@ void gfxt_set_eval_handler(int (*_eval_fn)(const char*)) {
 
 void gfxt_set_prompt_handler(char* (*_prompt_fn)(void)) {
   prompt_fn = _prompt_fn;
+  if (initialized && buffer && cursor == input_start && strchr(buffer, '\n') == NULL) {
+    memset(buffer, 0, buffer_size);
+    cursor = 0;
+    draw_cursor = 0;
+    input_start = 0;
+    first_line_end = 0;
+    last_line_start = 0;
+    putchar_x = 0;
+    putchar_y = 0;
+    current_char = 0;
+    _prompt();
+  }
 }
 
 static void _prompt() {
@@ -294,6 +309,17 @@ static inline void _del_at_cursor() {
   }
 }
 
+static int _history_line_is_valid(const char *line) {
+  int has_text = 0;
+  if (!line) return 0;
+  while (*line && *line != '\n' && *line != '\r') {
+    unsigned char c = (unsigned char)*line++;
+    if (c < 32 || c > 126) return 0;
+    if (c != ' ' && c != '\t') has_text = 1;
+  }
+  return has_text;
+}
+
 void _append_at_cursor(char c) {
   for (int i = cursor; i > draw_cursor; i--) {
     buffer[i] = buffer[i - 1];
@@ -368,7 +394,9 @@ void gfxt_putchar(char c) {
       }
       busy_cursor = cursor;
       current_char = cursor;
-      if (key_input_process && history_push_fn) history_push_fn(buffer + input_start);
+      if (key_input_process && history_push_fn && _history_line_is_valid(buffer + input_start)) {
+        history_push_fn(buffer + input_start);
+      }
       if (cursor > 0) {
         buffer[cursor] = c;
         cursor++;
@@ -378,7 +406,7 @@ void gfxt_putchar(char c) {
         key_input_process = 0;
         eval_fn(buffer + input_start);
         _prompt();
-      } else if (!pager_quit) {
+      } else if (pager_enabled && !pager_quit) {
         pager_lines++;
         if (pager_lines >= height - 2) {
           pager_lines = 0;
@@ -741,6 +769,40 @@ void gfxt_on_key(uint8_t key) {
   key_input_process = 0;
 }
 
+void gfxt_on_event(uint8_t event) {
+  if (!initialized) return;
+  _refresh_display();
+  gfxt_stdin_state = 0;
+
+  if (!gfxt_stdin) {
+    gfxt_stdin = event;
+    return;
+  }
+
+  key_input_process = 1;
+  switch (event) {
+    case EVT_KEY_ESCAPE:
+      memset(buffer + input_start, '\0', cursor - input_start);
+      cursor = input_start;
+      draw_cursor = cursor;
+      history_index = -1;
+      break;
+    case EVT_KEY_UP:
+      _fetch_history(1);
+      break;
+    case EVT_KEY_DOWN:
+      _fetch_history(-1);
+      break;
+    case EVT_KEY_LEFT:
+      if (draw_cursor > input_start) draw_cursor--;
+      break;
+    case EVT_KEY_RIGHT:
+      if (draw_cursor < cursor) draw_cursor++;
+      break;
+  }
+  key_input_process = 0;
+}
+
 void gfxt_set_busy(int _busy) {
   busy = _busy;
 }
@@ -773,6 +835,18 @@ void gfxt_refresh_display(void) {
 void gfxt_set_overlay(void (*_overlay_fn)(void)) {
   overlay_fn = _overlay_fn;
   _refresh_display();
+}
+
+void gfxt_set_pager_enabled(int enabled) {
+  pager_enabled = enabled ? 1 : 0;
+  if (!pager_enabled) {
+    pager_waiting = 0;
+    pager_lines = 0;
+  }
+}
+
+int gfxt_get_pager_enabled(void) {
+  return pager_enabled;
 }
 
 #ifdef TEST

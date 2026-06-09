@@ -45,11 +45,14 @@ int gfxt_scanf(const char *format, ...);
 void gfxt_set_theme(int theme);
 int gfxt_draw(void);
 void gfxt_on_key(uint8_t key);
+void gfxt_on_event(uint8_t event);
 void gfxt_set_busy(int busy);
 void gfxt_get_size(int *w, int *h);
 void gfxt_set_rendering(int rendering);
 void gfxt_refresh_display(void);
 void gfxt_set_overlay(void (*overlay_fn)(void));
+void gfxt_set_pager_enabled(int enabled);
+int gfxt_get_pager_enabled(void);
 void gfxt_set_drawing_params(int offset_x, int offset_y, int font_size);
 void gfxt_get_drawing_params(int *offset_x, int *offset_y, int *font_size);
 

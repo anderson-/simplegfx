@@ -2,6 +2,11 @@
 
 #if defined(GFX_BUFFER) || !(defined(GFX_SDL) || defined(GFX_SDL2))
 
+#if defined(ESP_PLATFORM)
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#endif
+
 static uint16_t currentColor = 0xFFFF;
 static uint16_t frameBuffer[WINDOW_WIDTH * WINDOW_HEIGHT];
 
@@ -49,12 +54,25 @@ void gfx_run(void) {
 }
 
 void gfx_delay(int ms) {
+#if defined(ESP_PLATFORM)
+  if (ms > 0) vTaskDelay(pdMS_TO_TICKS(ms));
+  else taskYIELD();
+#else
+  (void)ms;
+#endif
 }
 
-__attribute__((weak)) void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
+__attribute__((weak)) void gfxa_stream(audio_fill_fn fn, void *userdata,
+                                        gfxa_dtor_fn dtor,
+                                        int sample_rate, int block) {
   (void)sample_rate;
+  (void)block;
   int16_t buf[256];
   while (fn(buf, 256, userdata) > 0);
+  if (dtor) dtor(userdata);
+}
+
+__attribute__((weak)) void gfxa_stream_stop(void) {
 }
 
 double gfx_volume = 0.2;

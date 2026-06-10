@@ -1,5 +1,6 @@
 #include "sfxr.h"
 #include "simplegfx.h"
+#include "audio_engine.h"
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
@@ -286,21 +287,39 @@ int gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n) {
 
 static void (*_sfxr_cb)(bool) = NULL;
 
-static int sfxr_fill_wrapper(int16_t *buf, int n, void *user) {
-  return gfxa_sfxr_read((struct sfxr_state *)user, buf, n);
-}
-
 void gfxa_sfxr_destroy(struct sfxr_state *s) {
   free(s);
+}
+
+/* Wrapper para tocar via engine com callback */
+typedef struct {
+  struct sfxr_state *state;
+  void (*cb)(bool);
+} sfxr_ctx_t;
+
+static int sfxr_fill_ctx(int16_t *buf, int n, void *user) {
+  sfxr_ctx_t *ctx = (sfxr_ctx_t *)user;
+  return gfxa_sfxr_read(ctx->state, buf, n);
+}
+
+static void sfxr_dtor_ctx(void *user) {
+  sfxr_ctx_t *ctx = (sfxr_ctx_t *)user;
+  gfxa_sfxr_destroy(ctx->state);
+  if (ctx->cb) ctx->cb(false);
+  free(ctx);
 }
 
 void gfxa_sfxr_play(const float params[GFXA_SFXR_PARAM_COUNT]) {
   struct sfxr_state *s = gfxa_sfxr_create(params);
   if (!s) return;
+
+  sfxr_ctx_t *ctx = (sfxr_ctx_t *)malloc(sizeof(*ctx));
+  if (!ctx) { gfxa_sfxr_destroy(s); return; }
+  ctx->state = s;
+  ctx->cb = _sfxr_cb;
+
   if (_sfxr_cb) _sfxr_cb(true);
-  gfxa_stream(sfxr_fill_wrapper, s, s->sample_rate);
-  if (_sfxr_cb) _sfxr_cb(false);
-  gfxa_sfxr_destroy(s);
+  gfxa_stream(sfxr_fill_ctx, ctx, sfxr_dtor_ctx, s->sample_rate, GFXA_ASYNC);
 }
 
 void gfxa_sfxr_set_callback(void (*cb)(bool)) {

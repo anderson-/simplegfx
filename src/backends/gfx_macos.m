@@ -1,4 +1,5 @@
 #include "simplegfx.h"
+#include "ext/audio/audio_engine.h"
 #if defined(GFX_MACOS) && defined(__APPLE__)
 
 #import <Cocoa/Cocoa.h>
@@ -14,9 +15,6 @@ double gfx_volume = 0.2;
 
 static AudioQueueRef audioQueue = NULL;
 static AudioStreamBasicDescription audioFormat;
-static audio_fill_fn osx_fn = NULL;
-static void *osx_user = NULL;
-static int osx_playing = 0;
 static int audioSampleRate = 16000;
 
 void audio_output_callback(void *inUserData, AudioQueueRef inAQ, AudioQueueBufferRef inBuffer) {
@@ -24,23 +22,15 @@ void audio_output_callback(void *inUserData, AudioQueueRef inAQ, AudioQueueBuffe
   (void)inAQ;
   int16_t *buf = (int16_t *)inBuffer->mAudioData;
   int len = inBuffer->mAudioDataByteSize / sizeof(int16_t);
-  if (!osx_playing || !osx_fn) {
-    memset(buf, 0, inBuffer->mAudioDataByteSize);
-    AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
-    return;
-  }
-  int written = osx_fn(buf, len, osx_user);
-  if (written <= 0) {
-    osx_playing = 0;
-    memset(buf, 0, inBuffer->mAudioDataByteSize);
-  } else {
-    for (int i = written; i < len; i++) buf[i] = 0;
-  }
+  gfxa_engine_mix(buf, len);
   AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
 }
 
 void init_audio() {
   if (audioQueue != NULL) return;
+
+  gfxa_engine_init(audioSampleRate);
+
   audioFormat.mSampleRate = audioSampleRate;
   audioFormat.mFormatID = kAudioFormatLinearPCM;
   audioFormat.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
@@ -69,15 +59,17 @@ void cleanup_audio() {
   }
 }
 
-void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
+void gfxa_stream(audio_fill_fn fn, void *userdata, gfxa_dtor_fn dtor,
+                 int sample_rate, int block) {
   (void)sample_rate;
   init_audio();
-  osx_fn = fn;
-  osx_user = userdata;
-  osx_playing = 1;
-  while (osx_playing) gfx_delay(1);
-  osx_fn = NULL;
-  osx_user = NULL;
+  int ch = gfxa_engine_play(fn, userdata, dtor);
+  if (ch < 0) return;
+  if (block) gfxa_engine_wait();
+}
+
+void gfxa_stream_stop(void) {
+  gfxa_engine_stop_all();
 }
 
 void gfx_set_color(int r, int g, int b) {

@@ -205,5 +205,5 @@ void gfx_beep(int freq, int ms) {
   int fade = sr * 16 / 1000;
   if (fade > n / 2) fade = n / 2;
   beep_t state = {freq, sr, 0, n, fade};
-  gfxa_stream(beep_fill, &state, sr);
+  gfxa_stream(beep_fill, &state, NULL, sr, GFXA_SYNC);
 }

@@ -1,12 +1,10 @@
 #include "simplegfx.h"
+#include "ext/audio/audio_engine.h"
 #include <signal.h>
 #include <time.h>
 
 #if defined(GFX_SDL) || defined(GFX_SDL2)
 
-static audio_fill_fn sdl_fn = NULL;
-static void *sdl_user = NULL;
-static int sdl_playing = 0;
 static int sr = 16000;
 double gfx_volume = 0.2;
 static int exit_app = 0;
@@ -34,13 +32,12 @@ int main(int argc, char* argv[]) {
 static void audio_callback(void *userdata, uint8_t *stream, int len) {
   int16_t *buf = (int16_t *)stream;
   int n = len / sizeof(int16_t);
-  if (!sdl_playing) { memset(stream, 0, len); return; }
-  int written = sdl_fn(buf, n, sdl_user);
-  if (written <= 0) { sdl_playing = 0; memset(stream, 0, len); return; }
-  for (int i = written; i < n; i++) buf[i] = 0;
+  gfxa_engine_mix(buf, n);
 }
 
 static int audio_setup(void) {
+  gfxa_engine_init(sr);
+
   SDL_AudioSpec spec;
   SDL_memset(&spec, 0, sizeof(spec));
   spec.freq = sr;
@@ -62,19 +59,17 @@ static void audio_cleanup(void) {
   SDL_CloseAudio();
 }
 
-void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
+void gfxa_stream(audio_fill_fn fn, void *userdata, gfxa_dtor_fn dtor,
+                 int sample_rate, int block) {
   (void)sample_rate;
   if (!audio_inited) return;
-  SDL_LockAudio();
-  sdl_fn = fn;
-  sdl_user = userdata;
-  sdl_playing = 1;
-  SDL_UnlockAudio();
-  while (sdl_playing) SDL_Delay(1);
-  SDL_LockAudio();
-  sdl_fn = NULL;
-  sdl_user = NULL;
-  SDL_UnlockAudio();
+  int ch = gfxa_engine_play(fn, userdata, dtor);
+  if (ch < 0) return;
+  if (block) gfxa_engine_wait();
+}
+
+void gfxa_stream_stop(void) {
+  gfxa_engine_stop_all();
 }
 
 #ifdef GFX_SDL2

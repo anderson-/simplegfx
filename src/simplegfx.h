@@ -94,8 +94,14 @@ void gfx_screenshot(const char * filename);
 #endif
 
 typedef int (*audio_fill_fn)(int16_t *buf, int n, void *userdata);
+typedef void (*gfxa_dtor_fn)(void*);
 
-void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate);
+#define GFXA_SYNC  1
+#define GFXA_ASYNC 0
+
+void gfxa_stream(audio_fill_fn fn, void *userdata, gfxa_dtor_fn dtor,
+                 int sample_rate, int block);
+void gfxa_stream_stop(void);
 void gfx_beep(int freq, int ms);
 
 extern double gfx_volume;

@@ -279,11 +279,12 @@ int cmd_play(const char *args) {
 }
 
 int cmd_watch(const char *args) {
-  int sec = 1, n = 0;
+  double sec = 1.0;
+  int n = 0;
   char cmd[128] = {0};
 
-  int matched = sscanf(args, "%d %d %127[^\n]", &sec, &n, cmd);
-  if (sec < 1) sec = 1;
+  int matched = sscanf(args, "%lf %d %127[^\n]", &sec, &n, cmd);
+  if (sec < 0.05) sec = 0.05;
   int has_cmd = (matched >= 3 && cmd[0] != '\0');
 
   gfxt_printf("watch every %ds", sec);
@@ -307,7 +308,7 @@ int cmd_watch(const char *args) {
       gettimeofday(&now, NULL);
       long long elapsed = (now.tv_sec - start.tv_sec) * 1000000LL
                         + (now.tv_usec - start.tv_usec);
-      if (elapsed >= sec * 1000000LL) break;
+      if (elapsed >= (long long)(sec * 1000000.0)) break;
       if (gfx_yeld) gfx_yeld();
       if (gfxt_stdin) { gfxt_stdin = 0; gfxt_println("cancelled"); return 0; }
     }

@@ -93,8 +93,14 @@ uint16_t* gfx_get_frame_buffer(void);
 void gfx_screenshot(const char * filename);
 #endif
 
-// Audio API — every platform can provide a beep implementation
+// Audio API — every platform provides a beep and PCM playback
 void gfx_beep(int freq, int ms);
+
+// Play raw 16-bit signed PCM samples (mono, blocking).
+// Each backend / HAL implements this with its own audio system.
+// The default weak symbol is a no-op.
+void gfx_audio_play(const int16_t *samples, int num_samples, int sample_rate);
+
 extern double gfx_volume;
 
 #ifndef GFX_DISPLAY_BUFFER_COUNT

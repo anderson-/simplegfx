@@ -16,6 +16,12 @@ static int fadeout = 256;
 static int exit_app = 0;
 static int audio_inited = 0;
 
+/* PCM buffer playback state */
+static int16_t *pcm_buf = NULL;
+static int      pcm_len = 0;
+static int      pcm_pos = 0;
+static int      pcm_mode = 0; /* 0 = sine (beep), 1 = PCM */
+
 void signal_handler(int sig) {
   exit_app = 1;
 }
@@ -38,13 +44,27 @@ int main(int argc, char* argv[]) {
 void audio_callback(void * userdata, uint8_t * stream, int len) {
   int16_t * buffer = (int16_t *)stream;
   int genlen = len / sizeof(int16_t);
-  for (int i = 0; i < genlen; i++) {
-    buffer[i] = 0;
-  }
-  if (!playing) {
-    return;
-  }
-  if (frequency > 0 && samplesc < samples) {
+  memset(buffer, 0, len);
+  if (!playing) return;
+
+  if (pcm_mode) {
+    /* PCM buffer playback */
+    int remain = pcm_len - pcm_pos;
+    if (genlen > remain) genlen = remain;
+    for (int i = 0; i < genlen; i++) {
+      double vfact = 1.0;
+      if (pcm_pos < fadein)
+        vfact = (double)pcm_pos / (double)fadein;
+      else if (pcm_len - pcm_pos < fadeout)
+        vfact = (double)(pcm_len - pcm_pos) / (double)fadeout;
+      buffer[i] = (int16_t)((double)pcm_buf[pcm_pos] * gfx_volume * vfact);
+      pcm_pos++;
+    }
+    if (pcm_pos >= pcm_len) {
+      playing = 0;
+    }
+  } else if (frequency > 0 && samplesc < samples) {
+    /* Sine wave (legacy beep) */
     int remain = samples - samplesc;
     if (genlen > remain) genlen = remain;
     for (int i = 0; i < genlen; i++) {
@@ -64,7 +84,7 @@ void audio_callback(void * userdata, uint8_t * stream, int len) {
       samplesc++;
     }
   }
-  if (samples > 0 && samplesc >= samples) {
+  if (!pcm_mode && samples > 0 && samplesc >= samples) {
     playing = 0;
   }
 }
@@ -94,6 +114,7 @@ static void audio_cleanup(void) {
 void gfx_beep(int freq, int ms) {
   if (!audio_inited) return;
   SDL_LockAudio();
+  pcm_mode = 0;
   frequency = freq;
   samples = (int)((ms / 1000.0) * sr);
   if (samples < fadein + fadeout + 10) {
@@ -106,6 +127,33 @@ void gfx_beep(int freq, int ms) {
   while (playing) {
     SDL_Delay(1);
   }
+}
+
+void gfx_audio_play(const int16_t *samples_in, int num_samples, int sample_rate) {
+  if (!audio_inited || num_samples <= 0) return;
+  (void)sample_rate;
+  int16_t *copy = (int16_t *)malloc((size_t)num_samples * sizeof(int16_t));
+  if (!copy) return;
+  memcpy(copy, samples_in, (size_t)num_samples * sizeof(int16_t));
+
+  SDL_LockAudio();
+  if (pcm_buf) free(pcm_buf);
+  pcm_buf = copy;
+  pcm_len = num_samples;
+  pcm_pos = 0;
+  pcm_mode = 1;
+  samplesc = 0;
+  playing = 1;
+  SDL_UnlockAudio();
+
+  while (playing) {
+    SDL_Delay(1);
+  }
+
+  SDL_LockAudio();
+  if (pcm_buf) { free(pcm_buf); pcm_buf = NULL; }
+  pcm_mode = 0;
+  SDL_UnlockAudio();
 }
 
 #ifdef GFX_SDL2

@@ -48,6 +48,18 @@ void gfxa_sfxr_play(const float params[GFXA_SFXR_PARAM_COUNT]);
 void gfxa_sfxr_set_callback(void (*cb)(bool));
 void gfxa_sfxr_defaults(float params[GFXA_SFXR_PARAM_COUNT]);
 
+/* Pack/unpack — quantiza 24 floats [0,1] para 24 bytes, sem parser */
+int  gfxa_sfxr_pack(const float params[GFXA_SFXR_PARAM_COUNT],
+                    uint8_t packed[GFXA_SFXR_PARAM_COUNT]);
+void gfxa_sfxr_unpack(const uint8_t packed[GFXA_SFXR_PARAM_COUNT],
+                      float params[GFXA_SFXR_PARAM_COUNT]);
+
+/* Base64 — encode/decode: 24 floats em 6 bits cada → 24 chars, sem padding */
+int  gfxa_sfxr_to_base64(const float params[GFXA_SFXR_PARAM_COUNT],
+                         char *out, int out_size);
+int  gfxa_sfxr_from_base64(const char *str,
+                           float params[GFXA_SFXR_PARAM_COUNT]);
+
 #ifdef __cplusplus
 }
 #endif

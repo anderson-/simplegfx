@@ -1,5 +1,6 @@
 #include "sfxr.h"
 #include "simplegfx.h"
+#include <string.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -297,11 +298,141 @@ void gfxa_sfxr_play(const float params[GFXA_SFXR_PARAM_COUNT]) {
   struct sfxr_state *s = gfxa_sfxr_create(params);
   if (!s) return;
   if (_sfxr_cb) _sfxr_cb(true);
-  gfx_audio_play_stream(sfxr_fill_wrapper, s, s->sample_rate);
+  gfxa_stream(sfxr_fill_wrapper, s, s->sample_rate);
   if (_sfxr_cb) _sfxr_cb(false);
   gfxa_sfxr_destroy(s);
 }
 
 void gfxa_sfxr_set_callback(void (*cb)(bool)) {
   _sfxr_cb = cb;
+}
+
+/* ── Pack/unpack: 24 floats [0,1] ↔ 24 bytes ───────────────────────────── */
+
+int gfxa_sfxr_pack(const float params[GFXA_SFXR_PARAM_COUNT],
+                   uint8_t packed[GFXA_SFXR_PARAM_COUNT]) {
+  for (int i = 0; i < GFXA_SFXR_PARAM_COUNT; i++) {
+    float v = params[i];
+    if (i == GFXA_SFXR_WAVE_TYPE) {
+      /* WAVE_TYPE é 0-3, normaliza para [0,1] */
+      v = v / 3.0f;
+      if (v < 0.0f) v = 0.0f;
+      if (v > 1.0f) v = 1.0f;
+    } else {
+      if (v < 0.0f) v = 0.0f;
+      if (v > 1.0f) v = 1.0f;
+    }
+    packed[i] = (uint8_t)(v * 255.0f + 0.5f);
+  }
+  return GFXA_SFXR_PARAM_COUNT;
+}
+
+void gfxa_sfxr_unpack(const uint8_t packed[GFXA_SFXR_PARAM_COUNT],
+                      float params[GFXA_SFXR_PARAM_COUNT]) {
+  for (int i = 0; i < GFXA_SFXR_PARAM_COUNT; i++) {
+    float v = packed[i] / 255.0f;
+    if (i == GFXA_SFXR_WAVE_TYPE)
+      v = v * 3.0f;  /* desnormaliza para 0-3 */
+    params[i] = v;
+  }
+}
+
+/* ── Base64: 24 floats [0,1] quantizados em 6 bits cada → 24 chars ─────── */
+
+/* Cada 4 params de 6 bits ocupam 3 bytes. 24 params / 4 * 3 = 18 bytes.
+ * 18 bytes → 18/3*4 = 24 chars base64, sem padding.            */
+
+static const char b64[] =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static int b64_idx(char c) {
+  if (c >= 'A' && c <= 'Z') return c - 'A';
+  if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+  if (c >= '0' && c <= '9') return c - '0' + 52;
+  if (c == '+') return 62;
+  if (c == '/') return 63;
+  return -1;
+}
+
+/* 24 floats → 24 chars base64 */
+int gfxa_sfxr_to_base64(const float params[GFXA_SFXR_PARAM_COUNT],
+                        char *out, int out_size) {
+  /* Buffer intermediário: 24 valores de 6 bits em 18 bytes */
+  uint8_t bytes[18];
+  int b = 0;
+  for (int i = 0; i < GFXA_SFXR_PARAM_COUNT; i += 4) {
+    /* WAVE_TYPE (i==0) é 0-3, normaliza linearmente; demais usam sqrt companding */
+    int a = (i == 0)
+      ? (int)(params[0] / 3.0f * 63.0f + 0.5f)
+      : (int)(sqrtf(params[i]) * 63.0f + 0.5f);
+    if (a < 0) a = 0; if (a > 63) a = 63;
+    int c = (int)(sqrtf(params[i+2]) * 63.0f + 0.5f); if (c < 0) c = 0; if (c > 63) c = 63;
+    int d = (int)(sqrtf(params[i+3]) * 63.0f + 0.5f); if (d < 0) d = 0; if (d > 63) d = 63;
+    int bp = (int)(sqrtf(params[i+1]) * 63.0f + 0.5f); if (bp < 0) bp = 0; if (bp > 63) bp = 63;
+    bytes[b++] = (uint8_t)((a << 2) | (bp >> 4));
+    bytes[b++] = (uint8_t)((bp << 4) | (c >> 2));
+    bytes[b++] = (uint8_t)((c << 6) | d);
+  }
+
+  if (out_size < 24 + 1) return 0;
+  for (int i = 0; i < 18; i += 3) {
+    unsigned v = ((unsigned)bytes[i] << 16) |
+                 ((unsigned)bytes[i+1] << 8) |
+                  (unsigned)bytes[i+2];
+    out[0] = b64[(v >> 18) & 0x3F]; out++;
+    out[0] = b64[(v >> 12) & 0x3F]; out++;
+    out[0] = b64[(v >>  6) & 0x3F]; out++;
+    out[0] = b64[ v        & 0x3F]; out++;
+  }
+  *out = '\0';
+  return 24;
+}
+
+/* 24 chars base64 → 24 floats */
+int gfxa_sfxr_from_base64(const char *str,
+                          float params[GFXA_SFXR_PARAM_COUNT]) {
+  uint8_t bytes[18];
+  int bi = 0;
+
+  /* Decode base64 para 18 bytes */
+  while (*str && bi < 18) {
+    int a, bv, c, d;
+    while (*str && *str <= ' ') str++;
+    if (!*str || *str == '=') break;
+    if ((a = b64_idx(*str++)) < 0) return 1;
+    while (*str && *str <= ' ') str++;
+    if (!*str || *str == '=') { bytes[bi++] = (uint8_t)(a << 2); break; }
+    if ((bv = b64_idx(*str++)) < 0) return 1;
+    while (*str && *str <= ' ') str++;
+    if (!*str || *str == '=') { bytes[bi++] = (uint8_t)((a << 2) | (bv >> 4)); break; }
+    if ((c = b64_idx(*str++)) < 0) return 1;
+    while (*str && *str <= ' ') str++;
+    if (!*str || *str == '=') {
+      bytes[bi++] = (uint8_t)((a << 2) | (bv >> 4));
+      bytes[bi++] = (uint8_t)((bv << 4) | (c >> 2));
+      break;
+    }
+    if ((d = b64_idx(*str++)) < 0) return 1;
+    bytes[bi++] = (uint8_t)((a << 2) | (bv >> 4));
+    bytes[bi++] = (uint8_t)((bv << 4) | (c >> 2));
+    bytes[bi++] = (uint8_t)((c << 6) | d);
+  }
+
+  if (bi != 18) return 1;
+
+  /* Unpack 18 bytes para 24 valores de 6 bits e dequantiza */
+  int pi = 0;
+  for (int i = 0; i < 18; i += 3) {
+    float fa = (bytes[i] >> 2) / 63.0f;
+    float fb = ((bytes[i] & 0x03) << 4 | (bytes[i+1] >> 4)) / 63.0f;
+    float fc = ((bytes[i+1] & 0x0F) << 2 | (bytes[i+2] >> 6)) / 63.0f;
+    float fd = (bytes[i+2] & 0x3F) / 63.0f;
+    /* WAVE_TYPE (pi==0) desnormaliza linear; demais sqrt expand */
+    if (pi == 0) params[pi++] = fa * 3.0f;
+    else         params[pi++] = fa * fa;
+    params[pi++] = fb * fb;
+    params[pi++] = fc * fc;
+    params[pi++] = fd * fd;
+  }
+  return 0;
 }

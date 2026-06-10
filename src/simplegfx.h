@@ -95,7 +95,7 @@ void gfx_screenshot(const char * filename);
 
 typedef int (*audio_fill_fn)(int16_t *buf, int n, void *userdata);
 
-void gfx_audio_play_stream(audio_fill_fn fn, void *userdata, int sample_rate);
+void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate);
 void gfx_beep(int freq, int ms);
 
 extern double gfx_volume;

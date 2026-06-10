@@ -69,7 +69,7 @@ void cleanup_audio() {
   }
 }
 
-void gfx_audio_play_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
+void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
   (void)sample_rate;
   init_audio();
   osx_fn = fn;

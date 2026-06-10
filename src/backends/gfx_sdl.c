@@ -62,7 +62,7 @@ static void audio_cleanup(void) {
   SDL_CloseAudio();
 }
 
-void gfx_audio_play_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
+void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
   (void)sample_rate;
   if (!audio_inited) return;
   SDL_LockAudio();

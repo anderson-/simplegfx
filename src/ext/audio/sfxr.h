@@ -62,6 +62,22 @@ int  gfxa_sfxr_to_base64(const float params[GFXA_SFXR_PARAM_COUNT],
 int  gfxa_sfxr_from_base64(const char *str,
                            float params[GFXA_SFXR_PARAM_COUNT]);
 
+/* ── Accessores para integração com tracker ──────────────────────────── */
+
+/* Seta a frequência fundamental em Hz após criação (player usa isso
+ * para definir a nota musical, ignorando o BASE_FREQ do instrumento). */
+void gfxa_sfxr_set_freq(struct sfxr_state *s, float freq_hz);
+
+/* Seta parâmetros de vibrato (para efeito 4xy). */
+void gfxa_sfxr_set_vibrato(struct sfxr_state *s, float speed, float depth);
+
+/* Acesso ao período interno (para portamento / slides). */
+float gfxa_sfxr_get_period(const struct sfxr_state *s);
+void  gfxa_sfxr_set_period(struct sfxr_state *s, float period);
+
+/* Retorna 1 se o state já terminou (done flag). */
+bool gfxa_sfxr_is_done(const struct sfxr_state *s);
+
 #ifdef __cplusplus
 }
 #endif

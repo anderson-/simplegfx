@@ -291,6 +291,38 @@ void gfxa_sfxr_destroy(struct sfxr_state *s) {
   free(s);
 }
 
+/* ── Accessores para tracker ──────────────────────────────────────────── */
+
+void gfxa_sfxr_set_freq(struct sfxr_state *s, float freq_hz) {
+  if (!s || freq_hz <= 0.0f) return;
+  /* period = sample_rate / frequency */
+  float period = (float)s->sample_rate / freq_hz;
+  if (period < 8.0f) period = 8.0f;
+  s->period = period;
+  s->period_max = period * 2.0f;  /* margem para portamento up */
+}
+
+void gfxa_sfxr_set_vibrato(struct sfxr_state *s, float speed, float depth) {
+  if (!s) return;
+  s->vib_speed = speed * speed * 0.01f;
+  s->vib_amp   = depth * 0.5f;
+  s->vib_phase = 0.0f;
+}
+
+float gfxa_sfxr_get_period(const struct sfxr_state *s) {
+  return s ? s->period : 0.0f;
+}
+
+void gfxa_sfxr_set_period(struct sfxr_state *s, float period) {
+  if (!s) return;
+  if (period < 8.0f) period = 8.0f;
+  s->period = period;
+}
+
+bool gfxa_sfxr_is_done(const struct sfxr_state *s) {
+  return s ? (bool)s->done : true;
+}
+
 /* Wrapper para tocar via engine com callback */
 typedef struct {
   struct sfxr_state *state;

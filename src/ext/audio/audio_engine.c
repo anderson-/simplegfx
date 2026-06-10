@@ -33,18 +33,25 @@ static int fade_samples(void) {
 
 static void channel_done(int c) {
   channel_t *ch = &g_engine.ch[c];
-  /* Sinaliza inativo PRIMEIRO (barreira) para o mixer parar de usar */
+  /* Salva dtor/userdata ANTES de limpar */
+  void (*dtor)(void*) = ch->dtor;
+  void *user = ch->userdata;
+
+  /* Limpa TUDO PRIMEIRO (evita race: play_on pode ver active=false
+   * e sobrescrever fn/userdata ANTES do dtor terminar) */
+  ch->fn = NULL;
+  ch->userdata = NULL;
+  ch->dtor = NULL;
+  ch->stopping = false;
+  ch->fade_pos = 0;
+  __sync_synchronize();
+
+  /* Sinaliza inativo DEPOIS que os ponteiros já foram limpos */
   ch->active = false;
   __sync_synchronize();
 
-  ch->stopping = false;
-  ch->fade_pos = 0;
-  if (ch->dtor) {
-    ch->dtor(ch->userdata);
-    ch->dtor = NULL;
-  }
-  ch->fn = NULL;
-  ch->userdata = NULL;
+  /* Chama dtor por último (já salvamos os ponteiros) */
+  if (dtor) dtor(user);
 }
 
 /* ── Public API ────────────────────────────────────────────────────────── */

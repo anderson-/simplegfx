@@ -1,4 +1,9 @@
 #include "simplegfx.h"
+#include <math.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 static font_t * _font = NULL;
 
@@ -173,4 +178,32 @@ unsigned int _seed = 12345;
 int gfx_fast_rand(void) {
   _seed = _seed * 1103515245 + 12345;
   return (unsigned int)(_seed / 65536) % 32768;
+}
+
+typedef struct { int freq, sr, pos, len, fade; } beep_t;
+
+static int beep_fill(int16_t *buf, int n, void *user) {
+  beep_t *b = user;
+  int i = 0;
+  while (i < n && b->pos < b->len) {
+    float t = 2.0f * (float)M_PI * (float)b->freq * (float)b->pos / (float)b->sr;
+    float amp = 16000.0f;
+    if (b->pos < b->fade)
+      amp *= (float)b->pos / (float)b->fade;
+    else if (b->len - b->pos - 1 < b->fade)
+      amp *= (float)(b->len - b->pos - 1) / (float)b->fade;
+    buf[i++] = (int16_t)(sinf(t) * amp);
+    b->pos++;
+  }
+  return i;
+}
+
+void gfx_beep(int freq, int ms) {
+  int sr = 16000;
+  int n = sr * ms / 1000;
+  if (n < 512) n = 512;
+  int fade = sr * 16 / 1000;
+  if (fade > n / 2) fade = n / 2;
+  beep_t state = {freq, sr, 0, n, fade};
+  gfx_audio_play_stream(beep_fill, &state, sr);
 }

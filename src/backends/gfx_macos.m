@@ -12,75 +12,29 @@ static uint8_t g_r = 255, g_g = 255, g_b = 255;
 static float g_fps = GFX_FPS;
 double gfx_volume = 0.2;
 
-// Audio state — callback-driven, same pattern as SDL backend
 static AudioQueueRef audioQueue = NULL;
 static AudioStreamBasicDescription audioFormat;
-static double audioPhase = 0.0;
-static int audioPlaying = 0;
-static int audioSamples = 0;
-static int audioSampleCount = 0;
-static int audioFrequency = 0;
+static audio_fill_fn osx_fn = NULL;
+static void *osx_user = NULL;
+static int osx_playing = 0;
 static int audioSampleRate = 16000;
-static const int fadeSamples = 256; // 16ms (matches SDL)
-
-/* PCM buffer playback state */
-static int16_t *audioPcmBuf = NULL;
-static int      audioPcmLen = 0;
-static int      audioPcmPos = 0;
-static int      audioPcmMode = 0; /* 0 = sine (beep), 1 = PCM */
 
 void audio_output_callback(void *inUserData, AudioQueueRef inAQ, AudioQueueBufferRef inBuffer) {
   (void)inUserData;
   (void)inAQ;
   int16_t *buf = (int16_t *)inBuffer->mAudioData;
   int len = inBuffer->mAudioDataByteSize / sizeof(int16_t);
-  memset(buf, 0, inBuffer->mAudioDataByteSize);
-  if (!audioPlaying) {
+  if (!osx_playing || !osx_fn) {
+    memset(buf, 0, inBuffer->mAudioDataByteSize);
     AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
     return;
   }
-  int genlen = len;
-  if (audioPcmMode) {
-    if (audioPcmPos + genlen > audioPcmLen)
-      genlen = audioPcmLen - audioPcmPos;
-    if (genlen > 0) {
-      for (int i = 0; i < genlen; i++) {
-        double vfact = 1.0;
-        if (audioPcmPos < fadeSamples)
-          vfact = (double)audioPcmPos / (double)fadeSamples;
-        else if (audioPcmLen - audioPcmPos < fadeSamples)
-          vfact = (double)(audioPcmLen - audioPcmPos) / (double)fadeSamples;
-        buf[i] = (int16_t)((double)audioPcmBuf[audioPcmPos] * gfx_volume * vfact);
-        audioPcmPos++;
-      }
-    }
-    if (audioPcmPos >= audioPcmLen) audioPlaying = 0;
+  int written = osx_fn(buf, len, osx_user);
+  if (written <= 0) {
+    osx_playing = 0;
+    memset(buf, 0, inBuffer->mAudioDataByteSize);
   } else {
-    if (audioSampleCount + genlen > audioSamples) {
-      genlen = audioSamples - audioSampleCount;
-      if (genlen < 0) genlen = 0;
-    }
-    if (audioFrequency > 0) {
-      for (int i = 0; i < genlen; i++) {
-        double s = sin(2.0 * M_PI * audioPhase) * gfx_volume;
-        int si = audioSampleCount;
-        if (si < fadeSamples) {
-          s *= (double)si / fadeSamples;
-        } else if (audioSamples - si <= fadeSamples) {
-          s *= (double)(audioSamples - si) / fadeSamples;
-        }
-        int16_t v = (int16_t)(s * 32767.0);
-        if (v > 32767) v = 32767;
-        if (v < -32768) v = -32768;
-        buf[i] = v;
-        audioPhase += (double)audioFrequency / audioSampleRate;
-        if (audioPhase >= 1.0) audioPhase -= 1.0;
-        audioSampleCount++;
-      }
-    }
-    if (audioSamples > 0 && audioSampleCount >= audioSamples) {
-      audioPlaying = 0;
-    }
+    for (int i = written; i < len; i++) buf[i] = 0;
   }
   AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
 }
@@ -115,42 +69,15 @@ void cleanup_audio() {
   }
 }
 
-void gfx_beep(int freq, int ms) {
-  if (ms <= 0) return;
-  init_audio();
-  audioPcmMode = 0;
-  audioFrequency = freq;
-  audioSamples = (ms > 0) ? audioSampleRate * ms / 1000 : 0;
-  audioSampleCount = 0;
-  audioPhase = 0.0;
-  audioPlaying = 1;
-  while (audioPlaying) {
-    gfx_delay(1);
-  }
-}
-
-void gfx_audio_play(const int16_t *samples_in, int num_samples, int sample_rate) {
-  if (num_samples <= 0) return;
+void gfx_audio_play_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
   (void)sample_rate;
   init_audio();
-
-  int16_t *copy = (int16_t *)malloc((size_t)num_samples * sizeof(int16_t));
-  if (!copy) return;
-  memcpy(copy, samples_in, (size_t)num_samples * sizeof(int16_t));
-
-  if (audioPcmBuf) free(audioPcmBuf);
-  audioPcmBuf = copy;
-  audioPcmLen = num_samples;
-  audioPcmPos = 0;
-  audioPcmMode = 1;
-  audioPlaying = 1;
-
-  while (audioPlaying) {
-    gfx_delay(1);
-  }
-
-  if (audioPcmBuf) { free(audioPcmBuf); audioPcmBuf = NULL; }
-  audioPcmMode = 0;
+  osx_fn = fn;
+  osx_user = userdata;
+  osx_playing = 1;
+  while (osx_playing) gfx_delay(1);
+  osx_fn = NULL;
+  osx_user = NULL;
 }
 
 void gfx_set_color(int r, int g, int b) {

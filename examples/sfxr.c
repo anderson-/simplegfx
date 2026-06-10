@@ -185,51 +185,34 @@ static void gen_blip_select(float p[GFXA_SFXR_PARAM_COUNT]) {
   p[GFXA_SFXR_HPF_FREQ]     = 0.1f;
 }
 
+/* Coin (struct) — preset fixo, mesmo som do coin_json sem usar parser */
+static void gen_coin(float p[GFXA_SFXR_PARAM_COUNT]) {
+  gfxa_sfxr_defaults(p);
+  p[GFXA_SFXR_WAVE_TYPE]      = 1.0f;                  /* SAWTOOTH */
+  p[GFXA_SFXR_SUSTAIN_TIME]   = 0.05843462841353824f;
+  p[GFXA_SFXR_SUSTAIN_PUNCH]  = 0.5158931942184259f;
+  p[GFXA_SFXR_DECAY]          = 0.2636346084350746f;
+  p[GFXA_SFXR_BASE_FREQ]      = 0.4756746513221243f;
+  p[GFXA_SFXR_ARP_MOD]        = 0.723523248161935f;    /* signed 0.44704649632387 -> (0.447+1)/2 */
+  p[GFXA_SFXR_ARP_SPEED]      = 0.5638528206466059f;
+}
+
 /* Tabela de geradores — mesma ordem dos nomes abaixo */
 static void (*const generators[])(float *) = {
   gen_pickup_coin, gen_laser_shoot, gen_explosion,
-  gen_power_up, gen_hit_hurt, gen_jump, gen_blip_select
+  gen_power_up, gen_hit_hurt, gen_jump, gen_blip_select,
+  gen_coin
 };
-
-/* ── JSON da moeda (formato jsfxr/bfxr) ──────────────────────────────────── */
-static const char *coin_json =
-  "{"
-  "\"oldParams\":true,"
-  "\"wave_type\":1,"
-  "\"p_env_attack\":0,"
-  "\"p_env_sustain\":0.05843462841353824,"
-  "\"p_env_punch\":0.5158931942184259,"
-  "\"p_env_decay\":0.2636346084350746,"
-  "\"p_base_freq\":0.4756746513221243,"
-  "\"p_freq_limit\":0,"
-  "\"p_freq_ramp\":0,"
-  "\"p_freq_dramp\":0,"
-  "\"p_vib_strength\":0,"
-  "\"p_vib_speed\":0,"
-  "\"p_arp_mod\":0.44704649632387,"
-  "\"p_arp_speed\":0.5638528206466059,"
-  "\"p_duty\":0,"
-  "\"p_duty_ramp\":0,"
-  "\"p_repeat_speed\":0,"
-  "\"p_pha_offset\":0,"
-  "\"p_pha_ramp\":0,"
-  "\"p_lpf_freq\":1,"
-  "\"p_lpf_ramp\":0,"
-  "\"p_lpf_resonance\":0,"
-  "\"p_hpf_freq\":0,"
-  "\"p_hpf_ramp\":0"
-  "}";
 
 static const char *names[] = {
   "Pickup/Coin", "Laser/Shoot", "Explosion", "Power-up",
   "Hit/Hurt", "Jump", "Blip/Select",
-  "Coin (JSON)", "Random", "Mutate"
+  "Coin", "Random", "Mutate"
 };
 
 #define N_GEN (sizeof(generators)/sizeof(generators[0]))
 #define N     (sizeof(names)/sizeof(names[0]))
-#define IDX_COIN    (N_GEN)       /* 7 */
-#define IDX_RANDOM  8
+#define IDX_RANDOM  (N_GEN)       /* 8 */
 #define IDX_MUTATE  9
 
 /* Buffer para parâmetros aleatórios (persiste entre mutações) */
@@ -284,8 +267,6 @@ static void play_sel(void) {
   if ((unsigned)sel < N_GEN) {
     generators[sel](gen_buf);
     gfxa_sfxr_play(gen_buf);
-  } else if (sel == IDX_COIN) {
-    gfxa_sfxr_play_json(coin_json);
   } else if (sel == IDX_RANDOM) {
     gen_random_params();
     gfxa_sfxr_play(rand_params);

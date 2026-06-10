@@ -45,12 +45,7 @@ int  gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n);
 void gfxa_sfxr_destroy(struct sfxr_state *s);
 
 void gfxa_sfxr_play(const float params[GFXA_SFXR_PARAM_COUNT]);
-void gfxa_sfxr_play_str(const char *param_str);
-void gfxa_sfxr_play_json(const char *json_str);
 void gfxa_sfxr_set_callback(void (*cb)(bool));
-
-int  gfxa_sfxr_parse(const char *str, float params[GFXA_SFXR_PARAM_COUNT]);
-int  gfxa_sfxr_parse_json(const char *json, float params[GFXA_SFXR_PARAM_COUNT]);
 void gfxa_sfxr_defaults(float params[GFXA_SFXR_PARAM_COUNT]);
 
 #ifdef __cplusplus

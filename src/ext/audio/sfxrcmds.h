@@ -1,8 +1,8 @@
 #pragma once
 
-#include "ansiutils.h"
-#include "simpleterm.h"
 #include "simplegfx.h"
+#include "ext/term/ansiutils.h"
+#include "ext/term/simpleterm.h"
 #include "ext/audio/sfxr.h"
 #include "ext/audio/sfxr_presets.h"
 #include <string.h>

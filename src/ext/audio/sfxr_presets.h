@@ -1,6 +1,10 @@
 #pragma once
 #include "sfxr.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GFXA_SFXR_PRESET_COUNT 8
 
 /* Preenche params com o gerador de preset índice idx (0..PRESET_COUNT-1) */
@@ -14,3 +18,7 @@ void gfxa_sfxr_random(float params[GFXA_SFXR_PARAM_COUNT]);
 
 /* Muta os parâmetros in-place */
 void gfxa_sfxr_mutate(float params[GFXA_SFXR_PARAM_COUNT]);
+
+#ifdef __cplusplus
+}
+#endif

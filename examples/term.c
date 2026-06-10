@@ -6,10 +6,10 @@
 #include "simplegfx.h"
 #include "ext/term/simpleterm.h"
 #include "ext/term/stdcmds.h"
-#include "ext/term/sfxrcmds.h"
 #include "ext/term/dialogs.h"
 #include "ext/term/cliutils.h"
 #include "ext/term/statusbar.h"
+#include "ext/audio/sfxrcmds.h"
 
 #define HISTORY_SIZE 50
 

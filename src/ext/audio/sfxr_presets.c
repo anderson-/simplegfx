@@ -13,6 +13,10 @@ static int rnd(int max) {
 }
 
 static float sqr(float x) { return x * x; }
+static float cube(float x) { return x * x * x; }
+static float pow5(float x) { float s = sqr(x); return s * s * x; }
+
+static float rndr(float a, float b) { return a + frnd(b - a); }
 
 static float s2c(float js_signed) {
   return (js_signed + 1.0f) / 2.0f;
@@ -201,35 +205,140 @@ const char *gfxa_sfxr_preset_name(int idx) {
   return NULL;
 }
 
+/* ── Random: tradução literal do Params.prototype.random do jsfxr ──────── */
+
 void gfxa_sfxr_random(float params[GFXA_SFXR_PARAM_COUNT]) {
   gfxa_sfxr_defaults(params);
-  for (int i = 0; i < GFXA_SFXR_PARAM_COUNT; i++) {
-    if (i == GFXA_SFXR_WAVE_TYPE) {
-      params[i] = (float)(gfx_fast_rand() % 4);
-    } else if (i == GFXA_SFXR_DUTY) {
-      params[i] = 0.0f;
-    } else if (i == GFXA_SFXR_LPF_FREQ || i == GFXA_SFXR_HPF_FREQ) {
-      /* defaults */
-    } else if (i == GFXA_SFXR_FREQ_RAMP || i == GFXA_SFXR_FREQ_DRAMP ||
-               i == GFXA_SFXR_ARP_MOD || i == GFXA_SFXR_DUTY_RAMP ||
-               i == GFXA_SFXR_PHA_OFFSET || i == GFXA_SFXR_PHA_RAMP ||
-               i == GFXA_SFXR_LPF_RAMP || i == GFXA_SFXR_HPF_RAMP) {
-      params[i] = 0.5f;
-    } else {
-      params[i] = (float)(gfx_fast_rand() % 1000) / 1000.0f;
-    }
+
+  params[GFXA_SFXR_WAVE_TYPE] = (float)rnd(3);
+
+  float freq, ramp, dramp, duty, duty_ramp;
+  float vib_str, vib_spd;
+  float env_attack, env_sustain, env_decay, env_punch;
+  float lpf_res, lpf_freq, lpf_ramp;
+  float hpf_freq, hpf_ramp;
+  float pha_off, pha_ramp;
+  float repeat, arp_spd, arp_mod;
+
+  /* freq */
+  if (rnd(1))
+    freq = cube(frnd(2.0f) - 1.0f) + 0.5f;
+  else
+    freq = sqr(frnd(1.0f));
+  if (freq < 0.0f) freq = 0.0f;
+  if (freq > 1.0f) freq = 1.0f;
+
+  /* freq_ramp */
+  ramp = pow5(frnd(2.0f) - 1.0f);
+  if (freq > 0.7f && ramp > 0.2f) ramp = -ramp;
+  if (freq < 0.2f && ramp < -0.05f) ramp = -ramp;
+
+  /* freq_dramp */
+  dramp = cube(frnd(2.0f) - 1.0f);
+
+  /* duty */
+  duty = frnd(2.0f) - 1.0f;
+  duty_ramp = cube(frnd(2.0f) - 1.0f);
+
+  /* vibrato */
+  vib_str = cube(frnd(2.0f) - 1.0f);
+  vib_spd = rndr(-1.0f, 1.0f);
+
+  /* envelope */
+  env_attack = cube(rndr(-1.0f, 1.0f));
+  env_sustain = sqr(rndr(-1.0f, 1.0f));
+  env_decay = rndr(-1.0f, 1.0f);
+  env_punch = sqr(frnd(0.8f));
+
+  if (env_attack + env_sustain + env_decay < 0.2f) {
+    env_sustain += 0.2f + frnd(0.3f);
+    env_decay   += 0.2f + frnd(0.3f);
   }
+  /* clamp envelope to [0,1] */
+  if (env_attack  < 0.0f) env_attack  = 0.0f;
+  if (env_sustain < 0.0f) env_sustain = 0.0f;
+  if (env_decay   < 0.0f) env_decay   = 0.0f;
+  if (env_attack  > 1.0f) env_attack  = 1.0f;
+  if (env_sustain > 1.0f) env_sustain = 1.0f;
+  if (env_decay   > 1.0f) env_decay   = 1.0f;
+
+  /* filter */
+  lpf_res = rndr(-1.0f, 1.0f);
+  lpf_freq = 1.0f - cube(frnd(1.0f));
+  lpf_ramp = cube(frnd(2.0f) - 1.0f);
+  if (lpf_freq < 0.1f && lpf_ramp < -0.05f) lpf_ramp = -lpf_ramp;
+
+  hpf_freq = pow5(frnd(1.0f));
+  hpf_ramp = pow5(frnd(2.0f) - 1.0f);
+
+  /* phaser */
+  pha_off = cube(frnd(2.0f) - 1.0f);
+  pha_ramp = cube(frnd(2.0f) - 1.0f);
+
+  /* repeat / arp */
+  repeat  = frnd(2.0f) - 1.0f;
+  arp_spd = frnd(2.0f) - 1.0f;
+  arp_mod = frnd(2.0f) - 1.0f;
+
+  /* ── Grava no array C ──────────────────────────────────────────────── */
+  params[GFXA_SFXR_BASE_FREQ]     = freq;
+  params[GFXA_SFXR_FREQ_LIMIT]    = 0.0f;
+  params[GFXA_SFXR_FREQ_RAMP]     = s2c(ramp);
+  params[GFXA_SFXR_FREQ_DRAMP]    = s2c(dramp);
+  params[GFXA_SFXR_DUTY]          = s2c(duty);
+  params[GFXA_SFXR_DUTY_RAMP]     = s2c(duty_ramp);
+  params[GFXA_SFXR_VIB_STRENGTH]  = vib_str < 0.0f ? -vib_str : vib_str;
+  params[GFXA_SFXR_VIB_SPEED]     = vib_spd < 0.0f ? -vib_spd : vib_spd;
+  params[GFXA_SFXR_ATTACK]        = env_attack;
+  params[GFXA_SFXR_SUSTAIN_TIME]  = env_sustain;
+  params[GFXA_SFXR_DECAY]         = env_decay;
+  params[GFXA_SFXR_SUSTAIN_PUNCH] = env_punch;
+  params[GFXA_SFXR_LPF_RESONANCE] = s2c(lpf_res);
+  params[GFXA_SFXR_LPF_FREQ]      = lpf_freq;
+  params[GFXA_SFXR_LPF_RAMP]      = s2c(lpf_ramp);
+  params[GFXA_SFXR_HPF_FREQ]      = hpf_freq;
+  params[GFXA_SFXR_HPF_RAMP]      = s2c(hpf_ramp);
+  params[GFXA_SFXR_PHA_OFFSET]    = s2c(pha_off);
+  params[GFXA_SFXR_PHA_RAMP]      = s2c(pha_ramp);
+  params[GFXA_SFXR_REPEAT_SPEED]  = repeat < 0.0f ? 0.0f : repeat;
+  params[GFXA_SFXR_ARP_SPEED]     = arp_spd < 0.0f ? 0.0f : arp_spd;
+  params[GFXA_SFXR_ARP_MOD]       = s2c(arp_mod);
 }
 
+/* ── Mutate: tradução do Params.prototype.mutate do jsfxr ─────────────── */
+
 void gfxa_sfxr_mutate(float params[GFXA_SFXR_PARAM_COUNT]) {
-  for (int i = 0; i < GFXA_SFXR_PARAM_COUNT; i++) {
-    if (i == GFXA_SFXR_WAVE_TYPE) continue;
-    if (gfx_fast_rand() % 100 < 50) {
-      float delta = ((float)(gfx_fast_rand() % 1001) / 10000.0f) - 0.05f;
-      float v = params[i] + delta;
-      if (v < 0.0f) v = 0.0f;
-      if (v > 1.0f) v = 1.0f;
-      params[i] = v;
-    }
-  }
+  /* Helper: com 50% de chance aplica delta em v, clamp [0,1] */
+#define MUT(p) do { \
+    if (rnd(1)) { \
+      float v = params[p] + frnd(0.1f) - 0.05f; \
+      if (v < 0.0f) v = 0.0f; \
+      if (v > 1.0f) v = 1.0f; \
+      params[p] = v; \
+    } \
+  } while (0)
+
+  MUT(GFXA_SFXR_BASE_FREQ);
+  MUT(GFXA_SFXR_FREQ_RAMP);
+  MUT(GFXA_SFXR_FREQ_DRAMP);
+  MUT(GFXA_SFXR_DUTY);
+  MUT(GFXA_SFXR_DUTY_RAMP);
+  MUT(GFXA_SFXR_VIB_STRENGTH);
+  MUT(GFXA_SFXR_VIB_SPEED);
+  MUT(GFXA_SFXR_ATTACK);
+  MUT(GFXA_SFXR_SUSTAIN_TIME);
+  MUT(GFXA_SFXR_DECAY);
+  MUT(GFXA_SFXR_SUSTAIN_PUNCH);
+  MUT(GFXA_SFXR_LPF_RESONANCE);
+  MUT(GFXA_SFXR_LPF_FREQ);
+  MUT(GFXA_SFXR_LPF_RAMP);
+  MUT(GFXA_SFXR_HPF_FREQ);
+  MUT(GFXA_SFXR_HPF_RAMP);
+  MUT(GFXA_SFXR_PHA_OFFSET);
+  MUT(GFXA_SFXR_PHA_RAMP);
+  MUT(GFXA_SFXR_REPEAT_SPEED);
+  MUT(GFXA_SFXR_ARP_SPEED);
+  MUT(GFXA_SFXR_ARP_MOD);
+
+#undef MUT
 }

@@ -128,6 +128,128 @@ void simpleterm(void) {
   //print_buffer();
 }
 
+#include "modtracker.h"
+
+void modtracker_format(void) {
+  static msm_song_t a, b;
+  static uint8_t buf[sizeof(msm_song_t) + 64];
+
+  /* nota MIDI → Hz */
+  assert_eq((int)(msm_midi_to_freq(69) + 0.5f), 440);
+  assert_eq((int)(msm_midi_to_freq(57) + 0.5f), 220);
+
+  /* song vazia com banco padrão */
+  msm_song_init(&a, "test");
+  assert_eq(a.header.pattern_count, 1);
+  assert_eq(a.header.instrument_count, 8);
+  assert_eq(a.header.channels, MSM_CHANNELS);
+  assert_eq(a.patterns[0].cell[0][0].note, MSM_NOTE_NONE);
+
+  /* pack/unpack roundtrip */
+  a.patterns[0].cell[5][2].note = 60;
+  a.patterns[0].cell[5][2].instrument = 3;
+  a.patterns[0].cell[5][2].effect = MSM_FX_VOLUME;
+  a.patterns[0].cell[5][2].param = 32;
+  a.sequence[0] = 0;
+  int n = msm_pack(&a, buf, sizeof(buf));
+  assert_eq(n > 0, 1);
+  assert_eq(msm_unpack(buf, n, &b), 0);
+  assert_eq(b.patterns[0].cell[5][2].note, 60);
+  assert_eq(b.patterns[0].cell[5][2].instrument, 3);
+  assert_eq(b.patterns[0].cell[5][2].param, 32);
+  assert_eq(memcmp(&a.header, &b.header, sizeof(a.header)), 0);
+  assert_eq(memcmp(a.instruments, b.instruments, sizeof(a.instruments[0]) * 8), 0);
+
+  /* magic inválido é rejeitado */
+  buf[0] = 'X';
+  assert_eq(msm_unpack(buf, n, &b), 1);
+}
+
+void modtracker_mod_import(void) {
+  static msm_song_t s;
+  static uint8_t mod[1084 + 1024];
+  memset(mod, 0, sizeof(mod));
+  memcpy(mod, "test mod", 8);                 /* title */
+  memcpy(mod + 20, "lead sample", 11);        /* sample 1: nome */
+  mod[20 + 22] = 0; mod[20 + 23] = 100;       /* sample 1: length > 0 */
+  mod[950] = 1;                               /* song length */
+  mod[951] = 0;                               /* restart */
+  mod[952] = 0;                               /* order[0] = pattern 0 */
+  memcpy(mod + 1080, "M.K.", 4);
+
+  /* pattern 0, row 0, ch 0: período 428 (C-2 → MIDI 60), sample 1, C20 */
+  uint8_t *c = mod + 1084;
+  c[0] = (1 & 0xF0) | (428 >> 8);
+  c[1] = 428 & 0xFF;
+  c[2] = (1 << 4) | 0xC;
+  c[3] = 0x20;
+
+  assert_eq(msm_import_mod(mod, sizeof(mod), &s), 0);
+  assert_eq(s.header.pattern_count, 1);
+  assert_eq(s.header.sequence_length, 1);
+  assert_eq(s.patterns[0].cell[0][0].note, 60);
+  assert_eq(s.patterns[0].cell[0][0].instrument, 0);
+  assert_eq(s.patterns[0].cell[0][0].effect, MSM_FX_VOLUME);
+  assert_eq(s.patterns[0].cell[0][0].param, 0x20);
+  assert_eq(strcmp(s.instruments[0].name, "lead sample"), 0);
+
+  /* magic errado é rejeitado */
+  memcpy(mod + 1080, "8CHN", 4);
+  assert_eq(msm_import_mod(mod, sizeof(mod), &s), 1);
+}
+
+void modtracker_player(void) {
+  static msm_song_t s;
+  static int16_t pcm[2048];
+  msm_song_init(&s, "player");
+  s.patterns[0].cell[0][0].note = 57;     /* A3 no row 0 */
+  s.patterns[0].cell[0][0].instrument = 0;
+
+  msm_player_t *p = msm_create(&s);
+  assert_eq(msm_is_playing(p), 0);
+  msm_play(p);
+  assert_eq(msm_is_playing(p), 1);
+  assert_eq(msm_get_row(p), 0);
+
+  /* o trigger do row acontece dentro do fill (thread de áudio) */
+  assert_eq(msm_fill(pcm, 64, p), 64);
+  assert_eq(msm_get_channel_note(p, 0), 57);
+
+  /* timing: 125 BPM → tick = 320 samples; speed 6 → row = 1920 samples */
+  int row_samples = 6 * (16000 * 5 / (125 * 2));
+  assert_eq(row_samples, 1920);
+  int done = 64;
+  while (done < row_samples + 64) {
+    int chunk = row_samples + 64 - done;
+    if (chunk > 2048) chunk = 2048;
+    assert_eq(msm_fill(pcm, chunk, p), chunk);
+    done += chunk;
+  }
+  assert_eq(msm_get_row(p), 1);
+
+  /* a voz do A3 produziu áudio */
+  int energy = 0;
+  msm_fill(pcm, 512, p);
+  for (int i = 0; i < 512; i++) if (pcm[i] > 500 || pcm[i] < -500) energy++;
+  assert_eq(energy > 16, 1);
+
+  /* jam num canal parado */
+  msm_stop(p);
+  msm_jam(p, 2, 64, 0);
+  msm_fill(pcm, 512, p);
+  assert_eq(msm_get_channel_note(p, 2), 64);
+
+  /* edit lock silencia */
+  msm_edit_lock(p);
+  msm_fill(pcm, 256, p);
+  int silent = 1;
+  for (int i = 0; i < 256; i++) if (pcm[i]) silent = 0;
+  assert_eq(silent, 1);
+  msm_edit_unlock(p);
+
+  msm_destroy(p);
+}
+
 int main(void){
   start_tests();
 
@@ -137,6 +259,18 @@ int main(void){
 
   begin_section("simpleterm");
   simpleterm();
+  end_section();
+
+  begin_section("modtracker_format");
+  modtracker_format();
+  end_section();
+
+  begin_section("modtracker_mod_import");
+  modtracker_mod_import();
+  end_section();
+
+  begin_section("modtracker_player");
+  modtracker_player();
   end_section();
 
   end_tests();

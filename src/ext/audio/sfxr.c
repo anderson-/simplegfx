@@ -76,7 +76,7 @@ struct sfxr_state {
   int env_stage;
   int env_elapsed;
   float env_punch;
-  float flg_buf[1024];
+  float flg_buf[128];
   float flg_off;
   float flg_sl;
   int flg_pos;
@@ -141,7 +141,7 @@ struct sfxr_state *gfxa_sfxr_create(const float params[GFXA_SFXR_PARAM_COUNT]) {
   s->env_elapsed = 0;
   s->env_punch = ppu;
   memset(s->flg_buf, 0, sizeof(s->flg_buf));
-  s->flg_off = (pho >= 0.0f ? 1.0f : -1.0f) * (pho * pho) * 1020.0f;
+  s->flg_off = (pho >= 0.0f ? 1.0f : -1.0f) * (pho * pho) * 126.0f;
   s->flg_sl  = (phs >= 0.0f ? 1.0f : -1.0f) * (phs * phs);
   s->flg_pos = 0;
   s->rpt_time = (int)((1.0f - prp) * (1.0f - prp) * 20000.0f + 32.0f);
@@ -222,7 +222,7 @@ int gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n) {
     /* Flanger */
     s->flg_off += s->flg_sl;
     int iphase = (int)fabsf(floorf(s->flg_off));
-    if (iphase > 1023) iphase = 1023;
+    if (iphase > 127) iphase = 127;
     /* HPF slide */
     s->flthp *= s->flthp_d;
     if (s->flthp < 0.00001f) s->flthp = 0.00001f;
@@ -263,9 +263,9 @@ int gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n) {
       s->fltphp += s->fltp - pp;
       s->fltphp -= s->fltphp * s->flthp;
       ss = s->fltphp;
-      s->flg_buf[s->flg_pos & 1023] = ss;
-      ss += s->flg_buf[(s->flg_pos - iphase + 1024) & 1023];
-      s->flg_pos = (s->flg_pos + 1) & 1023;
+      s->flg_buf[s->flg_pos & 127] = ss;
+      ss += s->flg_buf[(s->flg_pos - iphase + 128) & 127];
+      s->flg_pos = (s->flg_pos + 1) & 127;
       sample += ss * ev;
     }
     /* Downsample */
@@ -293,13 +293,26 @@ void gfxa_sfxr_destroy(struct sfxr_state *s) {
 
 /* ── Accessores para tracker ──────────────────────────────────────────── */
 
+/* Converte frequência (Hz) para o período interno do synth.
+ * O loop de síntese avança a fase 8x por iteração interna e roda
+ * `summands` iterações internas por sample de saída, então a taxa
+ * de fase é 8 * summands * sample_rate unidades por segundo. */
+float gfxa_sfxr_freq_to_period(const struct sfxr_state *s, float freq_hz) {
+  if (!s || freq_hz <= 0.0f) return 0.0f;
+  float phase_rate = 8.0f * (float)s->summands * (float)s->sample_rate;
+  float period = phase_rate / freq_hz;
+  if (period < 8.0f) period = 8.0f;
+  return period;
+}
+
 void gfxa_sfxr_set_freq(struct sfxr_state *s, float freq_hz) {
   if (!s || freq_hz <= 0.0f) return;
-  /* period = sample_rate / frequency */
-  float period = (float)s->sample_rate / freq_hz;
-  if (period < 8.0f) period = 8.0f;
+  float period = gfxa_sfxr_freq_to_period(s, freq_hz);
   s->period = period;
-  s->period_max = period * 2.0f;  /* margem para portamento up */
+  /* A nota substitui BASE_FREQ/FREQ_LIMIT do instrumento: desliga o
+   * corte por limite e dá headroom para portamento/vibrato. */
+  s->period_max = period * 8.0f;
+  s->freq_cut = 0;
 }
 
 void gfxa_sfxr_set_vibrato(struct sfxr_state *s, float speed, float depth) {

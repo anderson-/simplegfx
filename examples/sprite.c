@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "simplegfx.h"
-#include "data.h"
+#include "coin.h"
 #include "spr_draw.h"
 
 /* Sprite is 48×48.  Pick a scale that fits the desktop window (640×480). */
@@ -20,7 +20,7 @@
 #define MAX_EXTRA   8192
 
 static int      cur_ch    = 0;
-static int      cur_act   = 4;
+static int      cur_act   = 0;
 static int      cur_t     = 0;
 static int      paused    = 0;
 

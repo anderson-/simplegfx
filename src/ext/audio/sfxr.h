@@ -68,6 +68,9 @@ int  gfxa_sfxr_from_base64(const char *str,
  * para definir a nota musical, ignorando o BASE_FREQ do instrumento). */
 void gfxa_sfxr_set_freq(struct sfxr_state *s, float freq_hz);
 
+/* Converte Hz para o período interno do state (unidades de fase). */
+float gfxa_sfxr_freq_to_period(const struct sfxr_state *s, float freq_hz);
+
 /* Seta parâmetros de vibrato (para efeito 4xy). */
 void gfxa_sfxr_set_vibrato(struct sfxr_state *s, float speed, float depth);
 

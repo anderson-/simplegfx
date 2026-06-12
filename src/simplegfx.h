@@ -31,10 +31,7 @@ extern "C" {
 #include <math.h>
 #include "keymap.h"
 #include "simplefont.h"
-
-#ifndef M_PI
-#define M_PI 3.14159265
-#endif
+#include "simplemath.h"
 
 // Common variables
 extern uint32_t elm;
@@ -67,10 +64,7 @@ int gfx_clear_text_buffer(void);
 int gfx_printf(const char * format, ...);
 
 // Utils
-int gfx_fast_rand(void);
 void gfx_delay(int ms);
-
-extern unsigned int _seed;
 
 // Backend specific
 #if defined(GFX_BUFFER) || !(defined(GFX_SDL) || defined(GFX_SDL2))
@@ -93,9 +87,12 @@ uint16_t* gfx_get_frame_buffer(void);
 void gfx_screenshot(const char * filename);
 #endif
 
-// Audio API — every platform can provide a beep implementation
+typedef int (*audio_fill_fn)(int16_t *buf, int n, void *userdata);
+
+void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate);
 void gfx_beep(int freq, int ms);
-extern double gfx_volume;
+
+extern int gfx_volume;
 
 #ifndef GFX_DISPLAY_BUFFER_COUNT
 #define GFX_DISPLAY_BUFFER_COUNT 2

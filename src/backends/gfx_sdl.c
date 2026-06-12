@@ -4,15 +4,11 @@
 
 #if defined(GFX_SDL) || defined(GFX_SDL2)
 
-static double phase = 0.0;
-static int playing = 0;
-static int samples = 0;
-static int samplesc = 0;
-static int frequency = 0;
+static audio_fill_fn sdl_fn = NULL;
+static void *sdl_user = NULL;
+static int sdl_playing = 0;
 static int sr = 16000;
-double gfx_volume = 0.2;
-static int fadein = 256;
-static int fadeout = 256;
+int gfx_volume = 2;
 static int exit_app = 0;
 static int audio_inited = 0;
 
@@ -35,38 +31,15 @@ int main(int argc, char* argv[]) {
   return 0;
 }
 
-void audio_callback(void * userdata, uint8_t * stream, int len) {
-  int16_t * buffer = (int16_t *)stream;
-  int genlen = len / sizeof(int16_t);
-  for (int i = 0; i < genlen; i++) {
-    buffer[i] = 0;
-  }
-  if (!playing) {
-    return;
-  }
-  if (frequency > 0 && samplesc < samples) {
-    int remain = samples - samplesc;
-    if (genlen > remain) genlen = remain;
-    for (int i = 0; i < genlen; i++) {
-      double vfact = 1.0;
-      if (samplesc < fadein) {
-        vfact = (double)samplesc / (double)fadein;
-      } else if (samples - samplesc < fadeout) {
-        vfact = (double)(samples - samplesc) / (double)fadeout;
-      }
-      double s = sin(2.0 * M_PI * phase) * (gfx_volume * vfact);
-      double amp = s * 32767.0;
-      if (amp > 32767.0) amp = 32767.0;
-      if (amp < -32768.0) amp = -32768.0;
-      buffer[i] = (int16_t) amp;
-      phase += frequency * 1.0 / sr;
-      if (phase >= 1.0) phase -= 1.0;
-      samplesc++;
-    }
-  }
-  if (samples > 0 && samplesc >= samples) {
-    playing = 0;
-  }
+static void audio_callback(void *userdata, uint8_t *stream, int len) {
+  int16_t *buf = (int16_t *)stream;
+  int n = len / sizeof(int16_t);
+  if (!sdl_playing) { memset(stream, 0, len); return; }
+  int written = sdl_fn(buf, n, sdl_user);
+  if (written <= 0) { sdl_playing = 0; memset(stream, 0, len); return; }
+  for (int i = written; i < n; i++) buf[i] = 0;
+  if (gfx_volume > 1)
+    for (int i = 0; i < written; i++) buf[i] /= gfx_volume;
 }
 
 static int audio_setup(void) {
@@ -91,21 +64,19 @@ static void audio_cleanup(void) {
   SDL_CloseAudio();
 }
 
-void gfx_beep(int freq, int ms) {
+void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
+  (void)sample_rate;
   if (!audio_inited) return;
   SDL_LockAudio();
-  frequency = freq;
-  samples = (int)((ms / 1000.0) * sr);
-  if (samples < fadein + fadeout + 10) {
-    samples = fadein + fadeout + 10;
-  }
-  phase = 0.0;
-  samplesc = 0;
-  playing = 1;
+  sdl_fn = fn;
+  sdl_user = userdata;
+  sdl_playing = 1;
   SDL_UnlockAudio();
-  while (playing) {
-    SDL_Delay(1);
-  }
+  while (sdl_playing) SDL_Delay(1);
+  SDL_LockAudio();
+  sdl_fn = NULL;
+  sdl_user = NULL;
+  SDL_UnlockAudio();
 }
 
 #ifdef GFX_SDL2

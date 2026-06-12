@@ -6,7 +6,7 @@
 
 static audio_stream_t sdl_fn = NULL;
 static void *sdl_user = NULL;
-static int sr = 16000;
+static int sr = GFXA_SAMPLE_RATE;
 static int exit_app = 0;
 static int audio_inited = 0;
 
@@ -32,13 +32,9 @@ int main(int argc, char* argv[]) {
 static void audio_callback(void *userdata, uint8_t *stream, int len) {
   int16_t *buf = (int16_t *)stream;
   int n = len / sizeof(int16_t);
-  if (_gfx_audio_playing) {
-    int written = sdl_fn(buf, n, sdl_user);
-    if (written <= 0) { _gfx_audio_playing = 0; memset(stream, 0, len); return; }
-    for (int i = written; i < n; i++) buf[i] = 0;
-  } else {
-    memset(stream, 0, len);
-  }
+  int written = sdl_fn(buf, n, sdl_user);
+  if (written <= 0) { memset(stream, 0, len); return; }
+  for (int i = written; i < n; i++) buf[i] = 0;
 }
 
 static int audio_setup(void) {
@@ -47,7 +43,7 @@ static int audio_setup(void) {
   spec.freq = sr;
   spec.format = AUDIO_S16;
   spec.channels = 1;
-  spec.samples = 256;
+  spec.samples = GFXA_BUF_SIZE;
   spec.callback = audio_callback;
   spec.userdata = NULL;
   if (SDL_OpenAudio(&spec, NULL) < 0) {

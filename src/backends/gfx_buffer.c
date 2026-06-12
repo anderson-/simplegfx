@@ -52,9 +52,8 @@ void gfx_delay(int ms) {
 }
 
 __attribute__((weak)) void gfxa_raw_stream(audio_stream_t fn) {
-  int16_t buf[256];
-  while (fn(buf, 256, NULL) > 0);
-  _gfx_audio_playing = 0;
+  int16_t buf[GFXA_BUF_SIZE];
+  while (fn(buf, GFXA_BUF_SIZE, NULL) > 0);
 }
 
 #endif

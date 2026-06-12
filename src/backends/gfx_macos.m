@@ -16,7 +16,7 @@ static AudioStreamBasicDescription audioFormat;
 static audio_stream_t osx_fn = NULL;
 static void *osx_user = NULL;
 static int _gfx_osx_playing = 0;
-static int audioSampleRate = 16000;
+static int audioSampleRate = GFXA_SAMPLE_RATE;
 
 void audio_output_callback(void *inUserData, AudioQueueRef inAQ, AudioQueueBufferRef inBuffer) {
   (void)inUserData;
@@ -31,7 +31,6 @@ void audio_output_callback(void *inUserData, AudioQueueRef inAQ, AudioQueueBuffe
   int written = osx_fn(buf, len, osx_user);
   if (written <= 0) {
     _gfx_osx_playing = 0;
-    _gfx_audio_playing = 0;
     memset(buf, 0, inBuffer->mAudioDataByteSize);
   } else {
     for (int i = written; i < len; i++) buf[i] = 0;
@@ -54,8 +53,8 @@ void init_audio() {
   // Prime 2 buffers so the callback keeps running
   for (int i = 0; i < 2; i++) {
     AudioQueueBufferRef buf;
-    AudioQueueAllocateBuffer(audioQueue, 512, &buf);
-    buf->mAudioDataByteSize = 512;
+    AudioQueueAllocateBuffer(audioQueue, GFXA_BUF_SIZE * sizeof(int16_t), &buf);
+    buf->mAudioDataByteSize = GFXA_BUF_SIZE * sizeof(int16_t);
     AudioQueueEnqueueBuffer(audioQueue, buf, 0, NULL);
   }
   AudioQueueStart(audioQueue, NULL);
@@ -72,7 +71,6 @@ void cleanup_audio() {
 void gfxa_raw_stream(audio_stream_t fn) {
   init_audio();
   osx_fn = fn;
-  _gfx_audio_playing = 1;
   _gfx_osx_playing = 1;
 }
 

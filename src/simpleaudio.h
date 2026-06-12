@@ -17,6 +17,8 @@ int  gfxa_play(audio_stream_t fn, void *data, int channel);
 void gfxa_stop(int channel);
 void gfxa_wait(int channel, int ms);
 
+void gfxa_set_volume(int channel, int vol);
+
 void gfx_beep(int freq, int ms);
 
 #endif

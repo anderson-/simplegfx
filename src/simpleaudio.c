@@ -1,5 +1,6 @@
 #include "simpleaudio.h"
 #include "simplegfx.h"
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -10,6 +11,7 @@ typedef struct {
   audio_stream_t fn;
   void *data;
   int playing;
+  int vol;
 } chan_t;
 
 static chan_t *chans[GFXA_CHANNELS];
@@ -25,8 +27,14 @@ static int _mix_fill(int16_t *out, int n, void *user) {
     chan_t *ch = chans[c];
     if (!ch) continue;
 
-    for (int i = 0; i < n; i++)
-      out[i] = (int16_t)(out[i] + ch->buf[i]);
+    int v = ch->vol;
+    if (v <= 1) {
+      for (int i = 0; i < n; i++)
+        out[i] = (int16_t)(out[i] + ch->buf[i]);
+    } else {
+      for (int i = 0; i < n; i++)
+        out[i] = (int16_t)(out[i] + ch->buf[i] / v);
+    }
 
     if (!ch->fn) {
       free(ch);
@@ -34,15 +42,21 @@ static int _mix_fill(int16_t *out, int n, void *user) {
       continue;
     }
 
-    if (ch->playing == 0) {
-      int r = ch->fn(ch->buf, n, ch->data);
-      if (r <= 0) {
-        apply_fade_out(ch->buf, n);
-        ch->fn = NULL;
-      }
-    } else {
+    if (ch->playing) {
       ch->playing = 0;
     }
+
+    int r = ch->fn(ch->buf, n, ch->data);
+    if (r < n) {
+      apply_fade_out(ch->buf, r);
+      for (int i = r; i < n; i++) ch->buf[i] = 0;
+      ch->fn = NULL;
+    }
+  }
+
+  if (gfx_volume > 1) {
+    for (int i = 0; i < n; i++)
+      out[i] /= gfx_volume;
   }
 
   return n;
@@ -58,28 +72,28 @@ int gfxa_play(audio_stream_t fn, void *data, int channel) {
       if (!chans[i]) { c = i; break; }
   if (c < 0 || c >= GFXA_CHANNELS) return -1;
 
-  if (!chans[c]) {
-    chans[c] = (chan_t *)malloc(sizeof(chan_t));
-    if (!chans[c]) return -1;
-    memset(chans[c], 0, sizeof(chan_t));
-    chans[c]->fn = fn;
-    chans[c]->data = data;
-    fn(chans[c]->buf, GFXA_BUF_SIZE, data);
+  chan_t *ch = chans[c];
+  if (!ch) {
+    ch = chans[c] = (chan_t *)malloc(sizeof(chan_t));
+    if (!ch) return -1;
+    memset(ch, 0, sizeof(chan_t));
+    ch->fn = fn;
+    ch->data = data;
+    ch->vol = 1;
+    fn(ch->buf, GFXA_BUF_SIZE, data);
     for (int i = 0; i < GFXA_BUF_SIZE; i++)
-      chans[c]->buf[i] = (int16_t)(chans[c]->buf[i] * i / GFXA_BUF_SIZE);
-    chans[c]->playing = 1;
+      ch->buf[i] = (int16_t)((int32_t)ch->buf[i] * i / GFXA_BUF_SIZE);
   } else {
-    chan_t *ch = chans[c];
     int16_t tmp[GFXA_BUF_SIZE];
     memcpy(tmp, ch->buf, GFXA_BUF_SIZE * sizeof(int16_t));
     ch->fn = fn;
     ch->data = data;
     fn(ch->buf, GFXA_BUF_SIZE, data);
-    apply_fade_out(tmp, GFXA_BUF_SIZE);
     for (int i = 0; i < GFXA_BUF_SIZE; i++)
-      ch->buf[i] = (int16_t)((int32_t)tmp[i] + (int32_t)ch->buf[i] * i / GFXA_BUF_SIZE);
-    ch->playing = 1;
+      ch->buf[i] = (int16_t)((int32_t)tmp[i] * (GFXA_BUF_SIZE - i) / GFXA_BUF_SIZE
+                           + (int32_t)ch->buf[i] * i / GFXA_BUF_SIZE);
   }
+  ch->playing = 1;
 
   if (started) return c;
   started = 1;
@@ -103,17 +117,31 @@ void gfxa_stop(int channel) {
 }
 
 void gfxa_wait(int channel, int ms) {
-  while (ms) {
+  int waited = 0;
+  while (ms > 0) {
     int any = 0;
     if (channel < 0) {
       for (int c = 0; c < GFXA_CHANNELS; c++)
         if (chans[c]) { any = 1; break; }
-    } else if (channel < GFXA_CHANNELS && chans[channel]) any = 1;
+    } else if (channel < GFXA_CHANNELS && chans[channel]) {
+      any = 1;
+    }
     if (!any) break;
     gfx_delay(1);
     ms--;
+    waited = 1;
   }
-  //gfx_delay(GFXA_BUF_SIZE * 1000 / GFXA_SAMPLE_RATE);
+  if (waited) gfx_delay(GFXA_BUF_SIZE * 1000 / GFXA_SAMPLE_RATE);
+}
+
+void gfxa_set_volume(int channel, int vol) {
+  if (vol < 0) vol = 0;
+  if (channel < 0) {
+    gfx_volume = vol;
+    return;
+  }
+  if (channel >= GFXA_CHANNELS) return;
+  if (chans[channel]) chans[channel]->vol = vol;
 }
 
 typedef struct { int freq, sr, pos, len; } beep_t;
@@ -133,6 +161,8 @@ void gfx_beep(int freq, int ms) {
   int sr = GFXA_SAMPLE_RATE;
   int n = sr * ms / 1000;
   if (n < 2 * GFXA_BUF_SIZE) n = 2 * GFXA_BUF_SIZE;
-  beep_t state = {freq, sr, 0, n};
-  gfxa_wait(gfxa_play(_beep_fill, &state, -1), ms);
+  beep_t *state = malloc(sizeof(beep_t));
+  *state = (beep_t){freq, sr, 0, n};
+  gfxa_wait(gfxa_play(_beep_fill, state, -1), ms);
+  free(state);
 }

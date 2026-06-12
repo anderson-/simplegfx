@@ -10,13 +10,12 @@
 static uint8_t g_fb[FB_SIZE * 4];
 static uint8_t g_r = 255, g_g = 255, g_b = 255;
 static float g_fps = GFX_FPS;
-int gfx_volume = 2;
 
 static AudioQueueRef audioQueue = NULL;
 static AudioStreamBasicDescription audioFormat;
-static audio_fill_fn osx_fn = NULL;
+static audio_stream_t osx_fn = NULL;
 static void *osx_user = NULL;
-static int osx_playing = 0;
+static int _gfx_osx_playing = 0;
 static int audioSampleRate = 16000;
 
 void audio_output_callback(void *inUserData, AudioQueueRef inAQ, AudioQueueBufferRef inBuffer) {
@@ -24,19 +23,18 @@ void audio_output_callback(void *inUserData, AudioQueueRef inAQ, AudioQueueBuffe
   (void)inAQ;
   int16_t *buf = (int16_t *)inBuffer->mAudioData;
   int len = inBuffer->mAudioDataByteSize / sizeof(int16_t);
-  if (!osx_playing || !osx_fn) {
+  if (!_gfx_osx_playing || !osx_fn) {
     memset(buf, 0, inBuffer->mAudioDataByteSize);
     AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
     return;
   }
   int written = osx_fn(buf, len, osx_user);
   if (written <= 0) {
-    osx_playing = 0;
+    _gfx_osx_playing = 0;
+    _gfx_audio_playing = 0;
     memset(buf, 0, inBuffer->mAudioDataByteSize);
   } else {
     for (int i = written; i < len; i++) buf[i] = 0;
-    if (gfx_volume > 1)
-      for (int i = 0; i < written; i++) buf[i] /= gfx_volume;
   }
   AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
 }
@@ -71,15 +69,11 @@ void cleanup_audio() {
   }
 }
 
-void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
-  (void)sample_rate;
+void gfxa_raw_stream(audio_stream_t fn) {
   init_audio();
   osx_fn = fn;
-  osx_user = userdata;
-  osx_playing = 1;
-  while (osx_playing) gfx_delay(1);
-  osx_fn = NULL;
-  osx_user = NULL;
+  _gfx_audio_playing = 1;
+  _gfx_osx_playing = 1;
 }
 
 void gfx_set_color(int r, int g, int b) {

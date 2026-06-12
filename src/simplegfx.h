@@ -32,6 +32,7 @@ extern "C" {
 #include "keymap.h"
 #include "simplefont.h"
 #include "simplemath.h"
+#include "simpleaudio.h"
 
 // Common variables
 extern uint32_t elm;
@@ -86,13 +87,6 @@ uint16_t* gfx_get_frame_buffer(void);
 #endif
 void gfx_screenshot(const char * filename);
 #endif
-
-typedef int (*audio_fill_fn)(int16_t *buf, int n, void *userdata);
-
-void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate);
-void gfx_beep(int freq, int ms);
-
-extern int gfx_volume;
 
 #ifndef GFX_DISPLAY_BUFFER_COUNT
 #define GFX_DISPLAY_BUFFER_COUNT 2

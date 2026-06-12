@@ -168,31 +168,3 @@ int gfx_font_table(int x, int y, int size) {
   }
   return y + 8 * fh;
 }
-
-typedef struct { int freq, sr, pos, len, fade; } beep_t;
-
-static int _beep_fill(int16_t *buf, int n, void *user) {
-  beep_t *b = user;
-  int i = 0;
-  while (i < n && b->pos < b->len) {
-    int amp = 16000;
-    if (b->pos < b->fade)
-      amp = amp * b->pos / b->fade;
-    else if (b->len - b->pos - 1 < b->fade)
-      amp = amp * (b->len - b->pos - 1) / b->fade;
-    uint32_t ph = (uint32_t)(((uint64_t)b->freq * b->pos * 65536) / b->sr);
-    buf[i++] = (int16_t)((gfx_fast_isin((int32_t)ph) * amp) >> 15);
-    b->pos++;
-  }
-  return i;
-}
-
-void gfx_beep(int freq, int ms) {
-  int sr = 16000;
-  int n = sr * ms / 1000;
-  if (n < 512) n = 512;
-  int fade = sr * 16 / 1000;
-  if (fade > n / 2) fade = n / 2;
-  beep_t state = {freq, sr, 0, n, fade};
-  gfxa_stream(_beep_fill, &state, sr);
-}

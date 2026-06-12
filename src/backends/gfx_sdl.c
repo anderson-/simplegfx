@@ -4,11 +4,9 @@
 
 #if defined(GFX_SDL) || defined(GFX_SDL2)
 
-static audio_fill_fn sdl_fn = NULL;
+static audio_stream_t sdl_fn = NULL;
 static void *sdl_user = NULL;
-static int sdl_playing = 0;
 static int sr = 16000;
-int gfx_volume = 2;
 static int exit_app = 0;
 static int audio_inited = 0;
 
@@ -34,12 +32,13 @@ int main(int argc, char* argv[]) {
 static void audio_callback(void *userdata, uint8_t *stream, int len) {
   int16_t *buf = (int16_t *)stream;
   int n = len / sizeof(int16_t);
-  if (!sdl_playing) { memset(stream, 0, len); return; }
-  int written = sdl_fn(buf, n, sdl_user);
-  if (written <= 0) { sdl_playing = 0; memset(stream, 0, len); return; }
-  for (int i = written; i < n; i++) buf[i] = 0;
-  if (gfx_volume > 1)
-    for (int i = 0; i < written; i++) buf[i] /= gfx_volume;
+  if (_gfx_audio_playing) {
+    int written = sdl_fn(buf, n, sdl_user);
+    if (written <= 0) { _gfx_audio_playing = 0; memset(stream, 0, len); return; }
+    for (int i = written; i < n; i++) buf[i] = 0;
+  } else {
+    memset(stream, 0, len);
+  }
 }
 
 static int audio_setup(void) {
@@ -64,19 +63,12 @@ static void audio_cleanup(void) {
   SDL_CloseAudio();
 }
 
-void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
-  (void)sample_rate;
+void gfxa_raw_stream(audio_stream_t fn) {
   if (!audio_inited) return;
   SDL_LockAudio();
   sdl_fn = fn;
-  sdl_user = userdata;
-  sdl_playing = 1;
   SDL_UnlockAudio();
-  while (sdl_playing) SDL_Delay(1);
-  SDL_LockAudio();
-  sdl_fn = NULL;
-  sdl_user = NULL;
-  SDL_UnlockAudio();
+  SDL_PauseAudio(0);
 }
 
 #ifdef GFX_SDL2

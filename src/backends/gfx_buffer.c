@@ -51,15 +51,10 @@ void gfx_run(void) {
 void gfx_delay(int ms) {
 }
 
-__attribute__((weak)) void gfxa_stream(audio_fill_fn fn, void *userdata, int sample_rate) {
-  (void)sample_rate;
+__attribute__((weak)) void gfxa_raw_stream(audio_stream_t fn) {
   int16_t buf[256];
-  while (fn(buf, 256, userdata) > 0) {
-    if (gfx_volume > 1)
-      for (int i = 0; i < 256; i++) buf[i] /= gfx_volume;
-  }
+  while (fn(buf, 256, NULL) > 0);
+  _gfx_audio_playing = 0;
 }
-
-int gfx_volume = 5;
 
 #endif

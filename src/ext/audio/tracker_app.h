@@ -74,6 +74,7 @@ static int ta_inst = 0;               /* instrumento corrente p/ entrada  */
 static int ta_pos = 0;                /* posição exibida da sequência     */
 static int ta_cur_row = 0, ta_cur_ch = 0, ta_cur_col = 0;
 static int ta_confirm_new = 0;
+static int ta_demo = 1;
 
 static int ta_inst_sel = 0, ta_inst_scroll = 0;
 
@@ -87,6 +88,13 @@ static int  ta_saving = 0;
 
 static char ta_msg[44] = "";
 static int  ta_msg_t = 0;
+static int  ta_dirty = 1;
+static int  ta_last_screen = -1, ta_last_menu = -2;
+static int  ta_last_playing = -1, ta_last_pos = -1, ta_last_row = -1;
+
+static void ta_request_redraw(void) {
+  ta_dirty = 1;
+}
 
 /* ─── Pequenos helpers de UI ───────────────────────────────────────────── */
 
@@ -113,6 +121,7 @@ static void ta_message(const char *fmt, ...) {
   vsnprintf(ta_msg, sizeof(ta_msg), fmt, ap);
   va_end(ap);
   ta_msg_t = 90;
+  ta_request_redraw();
 }
 
 static const char *ta_note_name(int note) {
@@ -206,6 +215,122 @@ static void ta_put(int pat, int row, int ch, int note, int inst,
   c->instrument = (uint8_t)inst;
   c->effect = (uint8_t)fx;
   c->param = (uint8_t)param;
+}
+
+/* ─── Demo song (Mitski — Washing Machine Heart) ────────────────────────── */
+/* Instrumentos: 0 SqLead  1 SqThin  2 SawBass  3 SinePad  4 Kick  5 Snare  6 HiHat  7 Pluck
+ * Melodia inicial em C# minor, 108 BPM, 6 ticks/row, 16 rows/compasso  */
+static void ta_build_demo_wmh(void) {
+  msm_song_init(ta_song, "Washing Machine Heart");
+  ta_song->header.pattern_count = 3;
+  ta_song->header.bpm = 108;
+  ta_song->header.speed = 6;
+  ta_song->header.restart = 0;
+  for (int i = 1; i < 3; i++) ta_clear_pattern(&ta_song->patterns[i]);
+  ta_clear_pattern(&ta_song->patterns[0]);
+
+  /* ── P0: intro (4 compassos) ── */
+  for (int bar = 0; bar < 4; bar++) {
+    int b = bar * 16;
+    /* bateria (ch3): kick/snare/hihat */
+    ta_put(0, b + 0,  3, 36, 4, 0, 0);
+    ta_put(0, b + 2,  3, 69, 6, MSM_FX_VOLUME, 28);
+    ta_put(0, b + 4,  3, 50, 5, 0, 0);
+    ta_put(0, b + 6,  3, 69, 6, MSM_FX_VOLUME, 28);
+    ta_put(0, b + 8,  3, 36, 4, 0, 0);
+    ta_put(0, b + 10, 3, 69, 6, MSM_FX_VOLUME, 28);
+    ta_put(0, b + 12, 3, 50, 5, 0, 0);
+    ta_put(0, b + 14, 3, 69, 6, MSM_FX_VOLUME, 28);
+    /* baixo (ch0): C#2 colcheias */
+    for (int r = 0; r < 16; r += 2)
+      ta_put(0, b + r, 0, 37, 2, 0, 0);  /* C#2 */
+    /* pad (ch2): C#m sustentado */
+    if (bar == 0) {
+      ta_put(0, b, 2, 61, 3, 0, 0);  /* C#4 */
+      ta_put(0, b, 2, 66, 3, 0, 0);  /* F#4 */
+    }
+  }
+
+  /* ── P1: melodia A (4 compassos) ── */
+  {
+    /* bateria (ch3) — mesma base */
+    for (int bar = 0; bar < 4; bar++) {
+      int b = bar * 16;
+      ta_put(1, b + 0,  3, 36, 4, 0, 0);
+      ta_put(1, b + 2,  3, 69, 6, MSM_FX_VOLUME, 30);
+      ta_put(1, b + 4,  3, 50, 5, 0, 0);
+      ta_put(1, b + 6,  3, 69, 6, MSM_FX_VOLUME, 30);
+      ta_put(1, b + 8,  3, 36, 4, 0, 0);
+      ta_put(1, b + 10, 3, 69, 6, MSM_FX_VOLUME, 30);
+      ta_put(1, b + 12, 3, 50, 5, 0, 0);
+      ta_put(1, b + 14, 3, 69, 6, MSM_FX_VOLUME, 30);
+    }
+    /* baixo (ch0): C#2 | A1 | D2 | A1 */
+    static const int bass1[4] = { 37, 33, 38, 33 };
+    for (int bar = 0; bar < 4; bar++)
+      for (int r = 0; r < 16; r += 2)
+        ta_put(1, bar * 16 + r, 0, bass1[bar], 2, 0, 0);
+
+    /* melodia (ch1, SqLead): frase principal */
+    static const int mel1[][3] = {
+      /* bar, row, note */
+      {0,  0, 61},   {0,  4, 66},   {0,  8, 64},   {0, 10, 66},   {0, 12, 62},
+      {1,  0, 61},   {1,  4, 59},   {1,  6, 61},   {1,  8, 57},   {1, 12, 59},  {1, 14, 60},
+      {2,  0, 61},   {2,  4, 57},   {2,  8, 56},   {2, 10, 57},   {2, 12, 59},  {2, 14, 61},
+      {3,  0, 62},   {3,  4, 62},   {3,  6, 64},   {3,  8, 62},
+    };
+    for (unsigned i = 0; i < sizeof(mel1) / sizeof(mel1[0]); i++)
+      ta_put(1, mel1[i][0] * 16 + mel1[i][1], 1, mel1[i][2], 0, 0, 0);
+
+    /* pad (ch2): acordes sustentados */
+    ta_put(1,  0, 2, 61, 3, 0, 0);  ta_put(1,  0, 2, 66, 3, 0, 0);  /* C#m */
+    ta_put(1, 16, 2, 57, 3, 0, 0);  ta_put(1, 16, 2, 64, 3, 0, 0);  /* A */
+    ta_put(1, 32, 2, 62, 3, 0, 0);  ta_put(1, 32, 2, 66, 3, 0, 0);  /* D */
+    ta_put(1, 48, 2, 57, 3, 0, 0);  ta_put(1, 48, 2, 64, 3, 0, 0);  /* A */
+  }
+
+  /* ── P2: melodia B (4 compassos) ── */
+  {
+    /* bateria (ch3) */
+    for (int bar = 0; bar < 4; bar++) {
+      int b = bar * 16;
+      ta_put(2, b + 0,  3, 36, 4, 0, 0);
+      ta_put(2, b + 2,  3, 69, 6, MSM_FX_VOLUME, 30);
+      ta_put(2, b + 4,  3, 50, 5, 0, 0);
+      ta_put(2, b + 6,  3, 69, 6, MSM_FX_VOLUME, 30);
+      ta_put(2, b + 8,  3, 36, 4, 0, 0);
+      ta_put(2, b + 10, 3, 69, 6, MSM_FX_VOLUME, 30);
+      ta_put(2, b + 12, 3, 50, 5, 0, 0);
+      ta_put(2, b + 14, 3, 69, 6, MSM_FX_VOLUME, 30);
+    }
+    /* baixo (ch0): F2 | F#2 | D2 | A1 */
+    static const int bass2[4] = { 41, 42, 38, 33 };
+    for (int bar = 0; bar < 4; bar++)
+      for (int r = 0; r < 16; r += 2)
+        ta_put(2, bar * 16 + r, 0, bass2[bar], 2, 0, 0);
+
+    /* melodia (ch1): variação */
+    static const int mel2[][3] = {
+      {0,  0, 61},   {0,  4, 66},   {0,  8, 64},   {0, 10, 66},   {0, 12, 62},  {0, 14, 61},
+      {1,  0, 61},   {1,  4, 59},   {1,  6, 61},   {1,  8, 57},   {1, 12, 59},  {1, 14, 60},
+      {2,  0, 61},   {2,  4, 57},   {2,  8, 56},   {2, 10, 57},   {2, 12, 59},  {2, 14, 61},
+      {3,  0, 68},   {3,  2, 69},   {3,  4, 68},   {3,  6, 66},   {3,  8, 66},   {3, 12, 64},
+    };
+    for (unsigned i = 0; i < sizeof(mel2) / sizeof(mel2[0]); i++)
+      ta_put(2, mel2[i][0] * 16 + mel2[i][1], 1, mel2[i][2], 0, 0, 0);
+
+    /* pad (ch2): acordes */
+    ta_put(2,  0, 2, 61, 3, 0, 0);  ta_put(2,  0, 2, 65, 3, 0, 0);  /* F */
+    ta_put(2, 16, 2, 61, 3, 0, 0);  ta_put(2, 16, 2, 66, 3, 0, 0);  /* F#m */
+    ta_put(2, 32, 2, 57, 3, 0, 0);  ta_put(2, 32, 2, 62, 3, 0, 0);  /* D */
+    ta_put(2, 48, 2, 57, 3, 0, 0);  ta_put(2, 48, 2, 64, 3, 0, 0);  /* A */
+  }
+
+  /* sequência: intro, melodia A×2, melodia B, melodia A×2 */
+  static const uint8_t seq[7] = { 0, 1, 1, 2, 1, 1, 0 };
+  memcpy(ta_song->sequence, seq, sizeof(seq));
+  ta_song->header.sequence_length = 7;
+  ta_song->header.restart = 1;
 }
 
 /* Instrumentos do banco padrão (msm_default_instruments):
@@ -678,7 +803,7 @@ static void ta_draw_help(void) {
 static const char *ta_menu_items[] = {
   "continuar", "tocar/parar", "loop pattern", "patterns",
   "instrumentos", "song/sequencia", "arquivos", "ajuda",
-  "nova musica", "sair",
+  "nova musica", "trocar demo", "sair",
 };
 #define TA_MENU_N ((int)(sizeof(ta_menu_items) / sizeof(ta_menu_items[0])))
 
@@ -698,7 +823,8 @@ static void ta_draw_menu(void) {
     if (i == 8 && ta_confirm_new) gfx_set_color(250, 120, 90);
     else gfx_set_color(i == ta_menu ? 250 : 170, i == ta_menu ? 250 : 170, 190);
     ta_textf(x + 1, y + 1 + i, "%s%s", ta_menu_items[i],
-             (i == 8 && ta_confirm_new) ? " (denovo!)" : "");
+             (i == 8 && ta_confirm_new) ? " (denovo!)" :
+             (i == 9) ? (ta_demo == 0 ? " (axis)" : " (mitski)") : "");
   }
 }
 
@@ -738,7 +864,21 @@ static int ta_key_menu(char k) {
         ta_menu = -1;
         ta_screen = TA_SCR_PATTERN;
         break;
-      case 9: return 1;   /* sair */
+      case 9:  /* trocar demo */
+        ta_demo = !ta_demo;
+        msm_stop(ta_player);
+        msm_edit_lock(ta_player);
+        if (ta_demo == 0)
+          ta_build_demo();
+        else
+          ta_build_demo_wmh();
+        msm_edit_unlock(ta_player);
+        ta_pos = 0; ta_cur_row = 0; ta_cur_ch = 0; ta_cur_col = 0;
+        ta_message(ta_demo ? "demo: Mitski" : "demo: axis");
+        ta_menu = -1;
+        ta_screen = TA_SCR_PATTERN;
+        break;
+      case 10: return 1;   /* sair */
     }
   }
   return 0;
@@ -992,7 +1132,10 @@ void gfx_app(int init) {
   if (init >= 0) {
     ta_song = (msm_song_t *)calloc(1, sizeof(msm_song_t));
     if (!ta_song) return;
-    ta_build_demo();
+    if (ta_demo == 0)
+      ta_build_demo();
+    else
+      ta_build_demo_wmh();
     ta_player = msm_create(ta_song);
 
     gfx_get_font_size(&ta_cw, &ta_chh, 1);
@@ -1000,6 +1143,7 @@ void gfx_app(int init) {
     gfx_get_font_size(&ta_cw, &ta_chh, ta_fs);
     ta_cols = WINDOW_WIDTH / ta_cw;
     ta_rows = WINDOW_HEIGHT / ta_chh;
+    ta_request_redraw();
 
     /* pluga o player num canal do engine; fica vivo até o fim do app */
     gfxa_stream(msm_fill, ta_player, NULL, GFXA_SAMPLE_RATE, GFXA_ASYNC);
@@ -1022,6 +1166,18 @@ int gfx_draw(float fps) {
   (void)fps;
   if (!ta_song || !ta_player) return 1;
 
+  int playing = msm_is_playing(ta_player);
+  int pos = msm_get_position(ta_player);
+  int row = msm_get_row(ta_player);
+  int needs_redraw = ta_dirty ||
+                     ta_screen != ta_last_screen ||
+                     ta_menu != ta_last_menu ||
+                     playing != ta_last_playing ||
+                     ta_msg_t > 0;
+  if (playing && (pos != ta_last_pos || row != ta_last_row))
+    needs_redraw = 1;
+  if (!needs_redraw) return 0;
+
   gfx_set_color(12, 12, 24);
   gfx_fill_rect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
@@ -1036,18 +1192,28 @@ int gfx_draw(float fps) {
   if (ta_menu >= 0) ta_draw_menu();
 
   /* mensagem de status (sobrepõe o rodapé) */
+  int redraw_next = 0;
   if (ta_msg_t > 0) {
+    int msg_will_expire = (ta_msg_t == 1);
     ta_msg_t--;
     gfx_set_color(20, 24, 38);
     ta_fill(0, ta_rows - 1, ta_cols, 1);
     gfx_set_color(250, 220, 120);
     ta_text(0, ta_rows - 1, ta_msg);
+    if (msg_will_expire) redraw_next = 1;
   } else if (ta_screen == TA_SCR_PATTERN) {
     gfx_set_color(90, 100, 120);
     ta_text(0, ta_rows - 1,
             ta_edit ? "piano=nota 1=off \\=cut .=apaga"
                     : "SPC=edita ENT=toca TAB=tela ESC=menu");
   }
+
+  ta_last_screen = ta_screen;
+  ta_last_menu = ta_menu;
+  ta_last_playing = playing;
+  ta_last_pos = pos;
+  ta_last_row = row;
+  ta_dirty = (ta_msg_t > 0) || redraw_next;
   return 1;
 }
 
@@ -1080,6 +1246,7 @@ static int ta_pattern_value_key(char k) {
 
 int gfx_on_key(char key, int down) {
   if (!down || !ta_player) return 0;
+  ta_request_redraw();
 
   /* menu aberto consome tudo */
   if (ta_menu >= 0) return ta_key_menu(key);

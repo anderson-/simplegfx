@@ -12,6 +12,7 @@ typedef struct {
   int  fade_pos;              /* progresso do fade (samples) */
   int  fade_len;              /* samples para fade-out */
   float volume;
+  int   volume_q15;
   float pan;                  /* -1..1 */
 } channel_t;
 
@@ -29,6 +30,12 @@ static int16_t s_tmp[1024];
 
 static int fade_samples(void) {
   return GFXA_ENGINE_FADE_MS * g_engine.sample_rate / 1000;
+}
+
+static int float_to_q15(float v) {
+  if (v <= 0.0f) return 0;
+  if (v >= 1.0f) return 32768;
+  return (int)(v * 32768.0f + 0.5f);
 }
 
 static void channel_done(int c) {
@@ -88,6 +95,7 @@ int gfxa_engine_play(audio_fill_fn fn, void *userdata, void (*dtor)(void*)) {
   ch->fade_pos = 0;
   ch->fade_len = fade_samples();
   ch->volume   = 1.0f;
+  ch->volume_q15 = 32768;
   ch->pan      = 0.0f;
   __sync_synchronize();
   ch->active   = true;
@@ -116,6 +124,7 @@ int gfxa_engine_play_on(int c, audio_fill_fn fn, void *userdata, void (*dtor)(vo
   ch->fade_pos = 0;
   ch->fade_len = fade_samples();
   ch->volume   = 1.0f;
+  ch->volume_q15 = 32768;
   ch->pan      = 0.0f;
   __sync_synchronize();
   ch->active   = true;
@@ -135,8 +144,11 @@ void gfxa_engine_stop_all(void) {
 }
 
 void gfxa_engine_set_volume(int c, float vol) {
-  if (c >= 0 && c < GFXA_ENGINE_CHANNELS)
-    g_engine.ch[c].volume = vol < 0.0f ? 0.0f : vol > 1.0f ? 1.0f : vol;
+  if (c >= 0 && c < GFXA_ENGINE_CHANNELS) {
+    float v = vol < 0.0f ? 0.0f : vol > 1.0f ? 1.0f : vol;
+    g_engine.ch[c].volume = v;
+    g_engine.ch[c].volume_q15 = float_to_q15(v);
+  }
 }
 
 void gfxa_engine_set_pan(int c, float pan) {
@@ -194,8 +206,9 @@ int gfxa_engine_mix(int16_t *buf, int n) {
       }
       int fade_n = written < remain ? written : remain;
       for (int i = 0; i < fade_n; i++) {
-        float t = (float)(ch->fade_pos + i) / ch->fade_len;
-        s_tmp[i] = (int16_t)(s_tmp[i] * (1.0f - t));
+        int gain_q15 = ((ch->fade_len - ch->fade_pos - i) * 32768) /
+                       ch->fade_len;
+        s_tmp[i] = (int16_t)(((int32_t)s_tmp[i] * gain_q15) >> 15);
       }
       ch->fade_pos += fade_n;
       if (ch->fade_pos >= ch->fade_len) {
@@ -206,10 +219,10 @@ int gfxa_engine_mix(int16_t *buf, int n) {
     }
 
     /* Mix com volume (mono para o buffer de saída) */
-    float vol = ch->volume;
-    if (vol != 1.0f) {
+    int vol_q15 = ch->volume_q15;
+    if (vol_q15 != 32768) {
       for (int i = 0; i < written; i++)
-        s_tmp[i] = (int16_t)(s_tmp[i] * vol);
+        s_tmp[i] = (int16_t)(((int32_t)s_tmp[i] * vol_q15) >> 15);
     }
 
     for (int i = 0; i < written; i++) {

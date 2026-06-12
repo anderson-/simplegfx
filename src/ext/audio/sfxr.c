@@ -90,8 +90,48 @@ struct sfxr_state {
   int done;
 };
 
+#if defined(ESP_PLATFORM) || defined(ESP32)
+#ifndef GFXA_SFXR_POOL_SIZE
+#define GFXA_SFXR_POOL_SIZE 16
+#endif
+
+static struct sfxr_state s_pool[GFXA_SFXR_POOL_SIZE];
+static volatile uint8_t s_pool_used[GFXA_SFXR_POOL_SIZE];
+
+static struct sfxr_state *sfxr_alloc_state(void) {
+  for (int i = 0; i < GFXA_SFXR_POOL_SIZE; i++) {
+    if (!s_pool_used[i] &&
+        __sync_bool_compare_and_swap(&s_pool_used[i], 0, 1)) {
+      memset(&s_pool[i], 0, sizeof(s_pool[i]));
+      return &s_pool[i];
+    }
+  }
+  return NULL;
+}
+
+static void sfxr_free_state(struct sfxr_state *s) {
+  if (!s) return;
+  for (int i = 0; i < GFXA_SFXR_POOL_SIZE; i++) {
+    if (s == &s_pool[i]) {
+      memset(s, 0, sizeof(*s));
+      __sync_synchronize();
+      s_pool_used[i] = 0;
+      return;
+    }
+  }
+}
+#else
+static struct sfxr_state *sfxr_alloc_state(void) {
+  return (struct sfxr_state *)calloc(1, sizeof(struct sfxr_state));
+}
+
+static void sfxr_free_state(struct sfxr_state *s) {
+  free(s);
+}
+#endif
+
 struct sfxr_state *gfxa_sfxr_create(const float params[GFXA_SFXR_PARAM_COUNT]) {
-  struct sfxr_state *s = calloc(1, sizeof(*s));
+  struct sfxr_state *s = sfxr_alloc_state();
   if (!s) return NULL;
 
   int wt = (int)clampf(params[GFXA_SFXR_WAVE_TYPE], 0, 4);
@@ -288,7 +328,7 @@ int gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n) {
 static void (*_sfxr_cb)(bool) = NULL;
 
 void gfxa_sfxr_destroy(struct sfxr_state *s) {
-  free(s);
+  sfxr_free_state(s);
 }
 
 /* ── Accessores para tracker ──────────────────────────────────────────── */

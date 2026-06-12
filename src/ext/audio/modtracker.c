@@ -21,13 +21,15 @@
 #define MSM_RELEASE_SAMPLES 1200    /* fade do NOTE_OFF  (~75 ms)         */
 #define MSM_PORTA_SCALE     1.0f    /* unidades de período por tick/param */
 #define MSM_MIX_CHUNK        128    /* granularidade da mixagem           */
+#define MSM_DYING_VOICES       2    /* caudas por canal para evitar clicks */
+#define MSM_Q15           32768
 
 typedef struct {
   /* Voz atual e voz anterior em fade-out (declick/release) */
   struct sfxr_state *voice;
-  struct sfxr_state *dying;
-  int   dying_len;            /* tamanho total do fade da dying          */
-  int   dying_left;           /* samples restantes                       */
+  struct sfxr_state *dying[MSM_DYING_VOICES];
+  int   dying_len[MSM_DYING_VOICES];   /* tamanho total do fade               */
+  int   dying_left[MSM_DYING_VOICES];  /* samples restantes                   */
 
   int   note;                 /* nota MIDI atual (-1 = nenhuma)          */
   int   instrument;           /* instrumento atual (-1 = nenhum)         */
@@ -80,15 +82,32 @@ struct msm_player {
   int   jump_position;        /* -1 = nenhum */
 
   float global_vol;
+  int   global_vol_q15;
 
   msm_voice_t v[MSM_CHANNELS];
   int16_t tmp[MSM_MIX_CHUNK];
+  uint8_t inst_cache_valid[MSM_MAX_INSTRUMENTS];
+  uint8_t inst_cache_packed[MSM_MAX_INSTRUMENTS][GFXA_SFXR_PARAM_COUNT];
+  float inst_cache_params[MSM_MAX_INSTRUMENTS][GFXA_SFXR_PARAM_COUNT];
 };
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
 
+static float midi_freq[120];
+static int midi_freq_ready = 0;
+
+static void init_midi_freq(void) {
+  if (midi_freq_ready) return;
+  for (int i = 0; i < 120; i++)
+    midi_freq[i] = 440.0f * powf(2.0f, (float)(i - 69) / 12.0f);
+  midi_freq_ready = 1;
+}
+
 float msm_midi_to_freq(int midi_note) {
-  return 440.0f * powf(2.0f, (float)(midi_note - 69) / 12.0f);
+  init_midi_freq();
+  if (midi_note < 0) midi_note = 0;
+  if (midi_note > 119) midi_note = 119;
+  return midi_freq[midi_note];
 }
 
 /* 2^(-n/12) para arpejo (0..15 semitons acima = período menor) */
@@ -106,6 +125,12 @@ static int current_pattern(const struct msm_player *p) {
   return pat;
 }
 
+static int float_to_q15(float v) {
+  if (v <= 0.0f) return 0;
+  if (v >= 1.0f) return MSM_Q15;
+  return (int)(v * (float)MSM_Q15 + 0.5f);
+}
+
 static void update_tick_len(struct msm_player *p) {
   int bpm = p->bpm > 0 ? p->bpm : MSM_BPM_DEFAULT;
   /* tick = 2.5/bpm s  →  samples = sr * 5 / (bpm * 2) */
@@ -115,18 +140,47 @@ static void update_tick_len(struct msm_player *p) {
 
 /* Move a voz atual para o slot de fade-out. */
 static void voice_release(msm_voice_t *c, int fade_len) {
-  if (c->dying) gfxa_sfxr_destroy(c->dying);  /* fade anterior descartado */
-  c->dying      = c->voice;
-  c->dying_len  = fade_len;
-  c->dying_left = fade_len;
-  c->voice      = NULL;
-  c->note       = -1;
+  if (!c->voice) { c->note = -1; return; }
+
+  int slot = -1;
+  for (int i = 0; i < MSM_DYING_VOICES; i++) {
+    if (!c->dying[i]) { slot = i; break; }
+  }
+  if (slot < 0) {
+    slot = 0;
+    for (int i = 1; i < MSM_DYING_VOICES; i++)
+      if (c->dying_left[i] < c->dying_left[slot]) slot = i;
+    gfxa_sfxr_destroy(c->dying[slot]);
+  }
+
+  c->dying[slot]      = c->voice;
+  c->dying_len[slot]  = fade_len;
+  c->dying_left[slot] = fade_len;
+  c->voice            = NULL;
+  c->note             = -1;
 }
 
 static void voice_free_all(msm_voice_t *c) {
   if (c->voice) { gfxa_sfxr_destroy(c->voice); c->voice = NULL; }
-  if (c->dying) { gfxa_sfxr_destroy(c->dying); c->dying = NULL; }
+  for (int i = 0; i < MSM_DYING_VOICES; i++) {
+    if (c->dying[i]) {
+      gfxa_sfxr_destroy(c->dying[i]);
+      c->dying[i] = NULL;
+    }
+    c->dying_left[i] = 0;
+  }
   c->note = -1;
+}
+
+static const float *instrument_params(struct msm_player *p, int inst) {
+  const uint8_t *packed = p->song->instruments[inst].params;
+  if (!p->inst_cache_valid[inst] ||
+      memcmp(p->inst_cache_packed[inst], packed, GFXA_SFXR_PARAM_COUNT) != 0) {
+    memcpy(p->inst_cache_packed[inst], packed, GFXA_SFXR_PARAM_COUNT);
+    gfxa_sfxr_unpack(packed, p->inst_cache_params[inst]);
+    p->inst_cache_valid[inst] = 1;
+  }
+  return p->inst_cache_params[inst];
 }
 
 /* Dispara uma nota na voz (roda na thread de áudio). */
@@ -139,8 +193,7 @@ static void voice_note_on(struct msm_player *p, int ch, int note, int inst) {
   if (c->instrument < 0 || c->instrument >= song->header.instrument_count)
     return;
 
-  float params[GFXA_SFXR_PARAM_COUNT];
-  gfxa_sfxr_unpack(song->instruments[c->instrument].params, params);
+  const float *params = instrument_params(p, c->instrument);
   struct sfxr_state *s = gfxa_sfxr_create(params);
   if (!s) return;
 
@@ -423,13 +476,12 @@ static void consume_jam(struct msm_player *p) {
 /* Mixa `n` samples de um canal em buf (com saturação no final do fill). */
 static void mix_voice(struct msm_player *p, int ch, int32_t *acc, int n) {
   msm_voice_t *c = &p->v[ch];
-  float chvol = (float)c->volume / 64.0f * p->global_vol;
-  if (c->muted) chvol = 0.0f;
+  int chvol_q15 = c->muted ? 0 : (p->global_vol_q15 * c->volume) / 64;
 
   if (c->voice) {
     int got = gfxa_sfxr_read(c->voice, p->tmp, n);
     for (int i = 0; i < got; i++)
-      acc[i] += (int32_t)((float)p->tmp[i] * chvol);
+      acc[i] += ((int32_t)p->tmp[i] * chvol_q15) >> 15;
     if (got < n) {   /* envelope terminou */
       gfxa_sfxr_destroy(c->voice);
       c->voice = NULL;
@@ -437,18 +489,20 @@ static void mix_voice(struct msm_player *p, int ch, int32_t *acc, int n) {
     }
   }
 
-  if (c->dying) {
-    int want = n < c->dying_left ? n : c->dying_left;
-    int got = gfxa_sfxr_read(c->dying, p->tmp, want);
-    float inv = 1.0f / (float)c->dying_len;
+  for (int d = 0; d < MSM_DYING_VOICES; d++) {
+    if (!c->dying[d]) continue;
+    int want = n < c->dying_left[d] ? n : c->dying_left[d];
+    int got = gfxa_sfxr_read(c->dying[d], p->tmp, want);
     for (int i = 0; i < got; i++) {
-      float g = (float)(c->dying_left - i) * inv;
-      acc[i] += (int32_t)((float)p->tmp[i] * g * chvol);
+      int fade_q15 = ((c->dying_left[d] - i) * MSM_Q15) / c->dying_len[d];
+      int gain_q15 = (chvol_q15 * fade_q15) >> 15;
+      acc[i] += ((int32_t)p->tmp[i] * gain_q15) >> 15;
     }
-    c->dying_left -= got;
-    if (got < want || c->dying_left <= 0) {
-      gfxa_sfxr_destroy(c->dying);
-      c->dying = NULL;
+    c->dying_left[d] -= got;
+    if (got < want || c->dying_left[d] <= 0) {
+      gfxa_sfxr_destroy(c->dying[d]);
+      c->dying[d] = NULL;
+      c->dying_left[d] = 0;
     }
   }
 }
@@ -524,8 +578,10 @@ msm_player_t *msm_create(msm_song_t *song) {
   p->song = song;
   p->speed = song->header.speed > 0 ? song->header.speed : MSM_SPEED_DEFAULT;
   p->bpm   = song->header.bpm   > 0 ? song->header.bpm   : MSM_BPM_DEFAULT;
-  p->global_vol = 1.0f;
+  p->global_vol = 0.75f;
+  p->global_vol_q15 = float_to_q15(p->global_vol);
   p->jump_position = -1;
+  init_midi_freq();
   update_tick_len(p);
 
   for (int i = 0; i < MSM_CHANNELS; i++) {
@@ -622,6 +678,7 @@ void msm_set_bpm(msm_player_t *p, int bpm) {
 void msm_set_global_volume(msm_player_t *p, float vol) {
   if (!p) return;
   p->global_vol = vol < 0.0f ? 0.0f : vol > 1.0f ? 1.0f : vol;
+  p->global_vol_q15 = float_to_q15(p->global_vol);
 }
 float msm_get_global_volume(const msm_player_t *p) {
   return p ? p->global_vol : 0.0f;

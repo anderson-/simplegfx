@@ -56,7 +56,6 @@ void  gfxa_sfxr_set_period(struct sfxr_state *s, float period);
 bool  gfxa_sfxr_is_done(const struct sfxr_state *s);
 
 int  gfxa_sfxr_play(const float params[GFXA_SFXR_PARAM_COUNT]);
-void gfxa_sfxr_set_callback(void (*cb)(bool));
 
 /* Pack/unpack: 24 floats [0,1] ↔ 24 bytes */
 int  gfxa_sfxr_pack(const float params[GFXA_SFXR_PARAM_COUNT],
@@ -64,7 +63,7 @@ int  gfxa_sfxr_pack(const float params[GFXA_SFXR_PARAM_COUNT],
 void gfxa_sfxr_unpack(const uint8_t packed[GFXA_SFXR_PARAM_COUNT],
                       float params[GFXA_SFXR_PARAM_COUNT]);
 
-/* Base64: 24 floats quantizados em 6 bits cada → 24 chars */
+/* Base64: 24 floats [0,1] quantizados em 6 bits cada → 24 chars */
 int  gfxa_sfxr_to_base64(const float params[GFXA_SFXR_PARAM_COUNT],
                          char *out, int out_size);
 int  gfxa_sfxr_from_base64(const char *str,

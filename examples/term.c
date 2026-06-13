@@ -9,6 +9,7 @@
 #include "ext/term/dialogs.h"
 #include "ext/term/cliutils.h"
 #include "ext/term/statusbar.h"
+#include "ext/audio/sfxrcmds.h"
 
 #define HISTORY_SIZE 50
 
@@ -69,6 +70,7 @@ void gfx_app(int init) {
   gfxt_std_cmd_reg();
   dialog_cmd_reg();
   cliutils_cmd_reg();
+  gfxt_sfxr_cmd_reg();
   gfxt_init(w, h - 1);
   gfxt_set_drawing_params(x, y + fh, fsize);
   dialog_init();

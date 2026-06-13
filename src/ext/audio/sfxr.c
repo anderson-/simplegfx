@@ -363,50 +363,28 @@ bool gfxa_sfxr_is_done(const struct sfxr_state *s) {
 
 /* ── Async playback via gfxa_play + fn(NULL,0,data) cleanup ─────────────── */
 
-struct sfxr_play_ctx {
-  struct sfxr_state *state;
-  void (*cb)(bool);
-};
-
-static void (*_sfxr_cb)(bool) = NULL;
-
-void gfxa_sfxr_set_callback(void (*cb)(bool)) {
-  _sfxr_cb = cb;
-}
-
 /* Stream fill function: quando buf == NULL, é cleanup.
  * O mixer (simpleaudio.c) chama fn(NULL, 0, data) quando o som termina. */
 static int _sfxr_fill(int16_t *buf, int n, void *user) {
-  struct sfxr_play_ctx *ctx = (struct sfxr_play_ctx *)user;
+  struct sfxr_state *s = (struct sfxr_state *)user;
 
   if (!buf) {
-    /* Cleanup: o som terminou naturalmente ou foi parado */
-    gfxa_sfxr_destroy(ctx->state);
-    if (ctx->cb) ctx->cb(false);
-    free(ctx);
+    /* Cleanup: o som terminou naturalmente */
+    gfxa_sfxr_destroy(s);
     return 0;
   }
 
-  return gfxa_sfxr_read(ctx->state, buf, n);
+  return gfxa_sfxr_read(s, buf, n);
 }
 
 int gfxa_sfxr_play(const float params[GFXA_SFXR_PARAM_COUNT]) {
   struct sfxr_state *s = gfxa_sfxr_create(params);
   if (!s) return -1;
 
-  struct sfxr_play_ctx *ctx = (struct sfxr_play_ctx *)malloc(sizeof(*ctx));
-  if (!ctx) { gfxa_sfxr_destroy(s); return -1; }
-  ctx->state = s;
-  ctx->cb = _sfxr_cb;
-
-  if (_sfxr_cb) _sfxr_cb(true);
-
-  int ch = gfxa_play(_sfxr_fill, ctx, -1);
+  int ch = gfxa_play(_sfxr_fill, s, -1);
   if (ch < 0) {
     /* Falha ao alocar canal — faz cleanup manual */
-    if (_sfxr_cb) _sfxr_cb(false);
     gfxa_sfxr_destroy(s);
-    free(ctx);
     return -1;
   }
 

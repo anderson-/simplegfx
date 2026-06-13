@@ -48,14 +48,12 @@ void gfx_run(void) {
   gfx_app(1);
 }
 
-void gfx_delay(int ms) {
+__attribute__((weak)) void gfx_delay(int ms) {
 }
 
-// Weak default — platforms with audio override via strong symbol
-__attribute__((weak)) void gfx_beep(int freq, int ms) {
-  (void)freq; (void)ms;
+__attribute__((weak)) void gfxa_raw_stream(audio_stream_t fn) {
+  int16_t buf[GFXA_BUF_SIZE];
+  while (fn(buf, GFXA_BUF_SIZE, NULL) > 0);
 }
-
-double gfx_volume = 0.2;
 
 #endif

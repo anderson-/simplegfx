@@ -2,13 +2,8 @@
 #include "simplegfx.h"
 #include <string.h>
 #include <stdio.h>
-#include <math.h>
 #include <stdlib.h>
 #include <ctype.h>
-
-#ifndef M_PI
-#define M_PI 3.14159265
-#endif
 
 static void (*_rtttl_cb)(bool) = NULL;
 
@@ -30,9 +25,17 @@ static int note_index(char c) {
 }
 
 static int note_freq(int octave, int note) {
-  int midi = (octave + 1) * 12 + note;
-  float freq = 440.0f * powf(2.0f, (float)(midi - 69) / 12.0f);
-  return (int)(freq + 0.5f);
+  int n = (octave + 1) * 12 + note - 69;
+  int k = n / 12;
+  int r = n % 12;
+  if (r < 0) { r += 12; k -= 1; }
+  uint32_t ratio = 65536;
+  for (int i = 0; i < r; i++)
+    ratio = (uint32_t)(((uint64_t)ratio * 69432) >> 16);
+  int64_t freq = (int64_t)440 * ratio;
+  if (k >= 0) freq <<= k;
+  else freq >>= -k;
+  return (int)((freq + 32768) >> 16);
 }
 
 static const char *skip_number(const char *p, int *value) {

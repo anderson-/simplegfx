@@ -352,6 +352,7 @@ void gfxt_putchar(char c) {
   ansi_debug_char(c);
 #endif
   printf("%c", c);
+  fflush(stdout);
 
   if (action == NON_ANSI_CHAR) {
     _update_xy(c, &putchar_x, &putchar_y, 1);

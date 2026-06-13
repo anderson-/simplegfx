@@ -169,7 +169,9 @@ void gfx_process_data(int compute_time) {
     if (n > 0) {
       stdin_processed = 1;
       for (int i = 0; i < n; i++) {
-        if (buf[i] == '\r') {
+        if (buf[i] == '\x04') {
+          exit(0);
+        } else if (buf[i] == '\r') {
           gfxt_feed_char('\n');
         } else {
           gfxt_feed_char(buf[i]);

@@ -99,6 +99,10 @@ test:
 	chmod +x ${BUILD}/test
 	./${BUILD}/test
 
+.PHONY: headless-stdio-test
+headless-stdio-test: buffer-term
+	sh test/headless_stdio.sh build/buffer-term
+
 # ── rg35xx ───────────────────────────────────────────────────────────────────
 
 # Internal cross-compile target (called inside toolchain)

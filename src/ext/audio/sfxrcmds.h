@@ -53,8 +53,12 @@ static int find_preset(const char *name) {
 static void play_and_show(const float p[GFXA_SFXR_PARAM_COUNT]) {
   char b64[32];
   gfxa_sfxr_to_base64(p, b64, sizeof(b64));
-  gfxt_printf("b64: " TERM_YELLOW "%s" TERM_RESET "\n", b64);
-  gfxa_sfxr_play(p);
+  int c = gfxa_sfxr_play(p);
+  if (c >= 0) {
+    gfxt_printf("b64[%d]: " TERM_YELLOW "%s" TERM_RESET "\n", c, b64);
+  } else {
+    gfxt_printf(TERM_RED "failed" TERM_RESET "\n");
+  }
 }
 
 /* ── cmd_sfxr ────────────────────────────────────────────────────────────── */
@@ -159,6 +163,11 @@ int cmd_sfxr(const char *args) {
 
 /* ── Registro ────────────────────────────────────────────────────────────── */
 
+int cmd_testsfxr(const char *args) {
+  return gfxt_run_cmd("watch 0.03 10 sfxr piano");
+}
+
 void gfxt_sfxr_cmd_reg(void) {
   gfxt_register_cmd("sfxr", "[preset|base64|random|list] play SFXR sound", cmd_sfxr);
+  gfxt_register_cmd("testsfxr", "test SFXR mix", cmd_testsfxr);
 }

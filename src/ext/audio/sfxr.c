@@ -6,10 +6,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 static float clampf(float v, float lo, float hi) {
   if (v < lo) return lo;
   if (v > hi) return hi;
@@ -46,8 +42,6 @@ void gfxa_sfxr_defaults(float params[GFXA_SFXR_PARAM_COUNT]) {
   params[GFXA_SFXR_HPF_RAMP]       = 0.5f;
   params[GFXA_SFXR_SOUND_VOL]      = 0.5f;
 }
-
-/* ── sfxr_state ─────────────────────────────────────────────────────────── */
 
 struct sfxr_state {
   float period;
@@ -93,8 +87,6 @@ struct sfxr_state {
   int done;
 };
 
-/* ── Pool ───────────────────────────────────────────────────────────────── */
-
 #if defined(ESP_PLATFORM) || defined(ESP32)
 #ifndef GFXA_SFXR_POOL_SIZE
 #define GFXA_SFXR_POOL_SIZE 16
@@ -134,8 +126,6 @@ static void sfxr_free_state(struct sfxr_state *s) {
   free(s);
 }
 #endif
-
-/* ── Create ─────────────────────────────────────────────────────────────── */
 
 struct sfxr_state *gfxa_sfxr_create(const float params[GFXA_SFXR_PARAM_COUNT]) {
   struct sfxr_state *s = sfxr_alloc_state();
@@ -219,45 +209,37 @@ struct sfxr_state *gfxa_sfxr_create(const float params[GFXA_SFXR_PARAM_COUNT]) {
   return s;
 }
 
-/* ── Read samples ───────────────────────────────────────────────────────── */
-
 int gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n) {
   if (s->done) return 0;
   int out = 0;
   while (out < n) {
-    /* Repeat */
     if (s->rpt_time != 0) {
       s->rpt_elapsed++;
       if (s->rpt_elapsed >= s->rpt_time) {
         s->rpt_elapsed = 0;
-        /* re-initForRepeat would need stored params — skipped for now */
       }
     }
-    /* Arpeggio */
     if (s->arp_time != 0 && s->t >= s->arp_time) {
       s->arp_time = 0;
       s->period *= s->arp_mult;
     }
-    /* Frequency slide */
     s->pmul += s->pslide;
     s->period *= s->pmul;
     if (s->period > s->period_max) {
       s->period = s->period_max;
       if (s->freq_cut) { s->done = 1; break; }
     }
-    /* Vibrato */
     float rfperiod = s->period;
     if (s->vib_amp > 0.0f) {
       s->vib_phase += s->vib_speed;
-      rfperiod = s->period * (1.0f + sinf(s->vib_phase) * s->vib_amp);
+      int32_t viphase = (int32_t)(s->vib_phase * (32768.0f / (float)M_PI));
+      rfperiod = s->period * (1.0f + (gfx_fast_isin(viphase) / 32767.0f) * s->vib_amp);
     }
     int iperiod = (int)rfperiod;
     if (iperiod < 8) iperiod = 8;
-    /* Duty */
     s->duty += s->dslide;
     if (s->duty < 0.0f) s->duty = 0.0f;
     if (s->duty > 0.5f) s->duty = 0.5f;
-    /* Envelope */
     if (++s->env_elapsed > s->env_len[s->env_stage]) {
       s->env_elapsed = 0;
       if (++s->env_stage > 2) { s->done = 1; break; }
@@ -268,15 +250,12 @@ int gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n) {
     if (s->env_stage == 0) ev = envf;
     else if (s->env_stage == 1) ev = 1.0f + (1.0f - envf) * 2.0f * s->env_punch;
     else ev = 1.0f - envf;
-    /* Flanger */
     s->flg_off += s->flg_sl;
     int iphase = (int)fabsf(floorf(s->flg_off));
     if (iphase > 127) iphase = 127;
-    /* HPF slide */
     s->flthp *= s->flthp_d;
     if (s->flthp < 0.00001f) s->flthp = 0.00001f;
     if (s->flthp > 0.1f) s->flthp = 0.1f;
-    /* 8x oversampling */
     float sample = 0.0f;
     for (int si = 0; si < 8; si++) {
       float ss = 0.0f;
@@ -294,7 +273,7 @@ int gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n) {
           if (fp < s->duty) ss = -1.0f + 2.0f * fp / s->duty;
           else ss = 1.0f - 2.0f * (fp - s->duty) / (1.0f - s->duty);
           break;
-        case 2: ss = sinf(fp * 2.0f * (float)M_PI); break;
+        case 2: ss = gfx_fast_isin((int32_t)(s->phase * (65536.0f / iperiod))) / 32767.0f; break;
         case 3: ss = s->noise[(s->phase * 32 / iperiod) % 32]; break;
       }
       float pp = s->fltp;
@@ -317,13 +296,11 @@ int gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n) {
       s->flg_pos = (s->flg_pos + 1) & 127;
       sample += ss * ev;
     }
-    /* Downsample */
     s->accum += sample;
     if (++s->summed < s->summands) { s->t++; continue; }
     s->summed = 0;
     sample = s->accum / s->summands;
     s->accum = 0.0f;
-    /* Gain and output */
     sample = sample / 8.0f * s->gain;
     int32_t sample_out = (int32_t)floorf(sample * 32768.0f);
     if (sample_out >= 32768) sample_out = 32767;
@@ -333,8 +310,6 @@ int gfxa_sfxr_read(struct sfxr_state *s, int16_t *buf, int n) {
   }
   return out;
 }
-
-/* ── Getters/setters ────────────────────────────────────────────────────── */
 
 void gfxa_sfxr_destroy(struct sfxr_state *s) {
   sfxr_free_state(s);
@@ -361,15 +336,10 @@ bool gfxa_sfxr_is_done(const struct sfxr_state *s) {
   return s ? (bool)s->done : true;
 }
 
-/* ── Async playback via gfxa_play + fn(NULL,0,data) cleanup ─────────────── */
-
-/* Stream fill function: quando buf == NULL, é cleanup.
- * O mixer (simpleaudio.c) chama fn(NULL, 0, data) quando o som termina. */
 static int _sfxr_fill(int16_t *buf, int n, void *user) {
   struct sfxr_state *s = (struct sfxr_state *)user;
 
   if (!buf) {
-    /* Cleanup: o som terminou naturalmente */
     gfxa_sfxr_destroy(s);
     return 0;
   }
@@ -383,7 +353,6 @@ int gfxa_sfxr_play(const float params[GFXA_SFXR_PARAM_COUNT]) {
 
   int ch = gfxa_play(_sfxr_fill, s, -1);
   if (ch < 0) {
-    /* Falha ao alocar canal — faz cleanup manual */
     gfxa_sfxr_destroy(s);
     return -1;
   }
@@ -391,14 +360,11 @@ int gfxa_sfxr_play(const float params[GFXA_SFXR_PARAM_COUNT]) {
   return ch;
 }
 
-/* ── Pack/unpack: 24 floats [0,1] ↔ 24 bytes ───────────────────────────── */
-
 int gfxa_sfxr_pack(const float params[GFXA_SFXR_PARAM_COUNT],
                    uint8_t packed[GFXA_SFXR_PARAM_COUNT]) {
   for (int i = 0; i < GFXA_SFXR_PARAM_COUNT; i++) {
     float v = params[i];
     if (i == GFXA_SFXR_WAVE_TYPE) {
-      /* WAVE_TYPE é 0-3, normaliza para [0,1] */
       v = v / 3.0f;
       if (v < 0.0f) v = 0.0f;
       if (v > 1.0f) v = 1.0f;
@@ -416,15 +382,10 @@ void gfxa_sfxr_unpack(const uint8_t packed[GFXA_SFXR_PARAM_COUNT],
   for (int i = 0; i < GFXA_SFXR_PARAM_COUNT; i++) {
     float v = packed[i] / 255.0f;
     if (i == GFXA_SFXR_WAVE_TYPE)
-      v = v * 3.0f;  /* desnormaliza para 0-3 */
+      v = v * 3.0f;
     params[i] = v;
   }
 }
-
-/* ── Base64: 24 floats [0,1] quantizados em 6 bits cada → 24 chars ─────── */
-
-/* Cada 4 params de 6 bits ocupam 3 bytes. 24 params / 4 * 3 = 18 bytes.
- * 18 bytes → 18/3*4 = 24 chars base64, sem padding.            */
 
 static const char b64[] =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -438,14 +399,11 @@ static int b64_idx(char c) {
   return -1;
 }
 
-/* 24 floats → 24 chars base64 */
 int gfxa_sfxr_to_base64(const float params[GFXA_SFXR_PARAM_COUNT],
                         char *out, int out_size) {
-  /* Buffer intermediário: 24 valores de 6 bits em 18 bytes */
   uint8_t bytes[18];
   int b = 0;
   for (int i = 0; i < GFXA_SFXR_PARAM_COUNT; i += 4) {
-    /* WAVE_TYPE (i==0) é 0-3, normaliza linearmente; demais usam sqrt companding */
     int a = (i == 0)
       ? (int)(params[0] / 3.0f * 63.0f + 0.5f)
       : (int)(sqrtf(params[i]) * 63.0f + 0.5f);
@@ -472,13 +430,11 @@ int gfxa_sfxr_to_base64(const float params[GFXA_SFXR_PARAM_COUNT],
   return 24;
 }
 
-/* 24 chars base64 → 24 floats */
 int gfxa_sfxr_from_base64(const char *str,
                           float params[GFXA_SFXR_PARAM_COUNT]) {
   uint8_t bytes[18];
   int bi = 0;
 
-  /* Decode base64 para 18 bytes */
   while (*str && bi < 18) {
     int a, bv, c, d;
     while (*str && *str <= ' ') str++;
@@ -504,14 +460,12 @@ int gfxa_sfxr_from_base64(const char *str,
 
   if (bi != 18) return 1;
 
-  /* Unpack 18 bytes para 24 valores de 6 bits e dequantiza */
   int pi = 0;
   for (int i = 0; i < 18; i += 3) {
     float fa = (bytes[i] >> 2) / 63.0f;
     float fb = ((bytes[i] & 0x03) << 4 | (bytes[i+1] >> 4)) / 63.0f;
     float fc = ((bytes[i+1] & 0x0F) << 2 | (bytes[i+2] >> 6)) / 63.0f;
     float fd = (bytes[i+2] & 0x3F) / 63.0f;
-    /* WAVE_TYPE (pi==0) desnormaliza linear; demais sqrt expand */
     if (pi == 0) params[pi++] = fa * 3.0f;
     else         params[pi++] = fa * fa;
     params[pi++] = fb * fb;

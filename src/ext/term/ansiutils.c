@@ -56,7 +56,7 @@ int ansi_feed(char c, int *state, int *param_count, int *params) {
       }
       return NON_ANSI_CHAR;
     case 1:
-      if (c == '[') {
+      if (c == '[' || c == 'O') {
         *state = 2;
         *param_count = 0;
         for (int i = 0; i < 8; i++) params[i] = 0;
@@ -106,6 +106,9 @@ int ansi_feed(char c, int *state, int *param_count, int *params) {
             break;
           case 'T':
             action = ANSI_SCROLL_DOWN;
+            break;
+          case '~':
+            if (params[0] == 3) action = ANSI_DELETE;
             break;
           default:
 #ifdef DEBUG

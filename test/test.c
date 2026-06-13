@@ -104,6 +104,17 @@ void ansi_parser(void) {
   assert_eq(ansi_feed('[',    &state, &param_count, params), ANSI_NONE);
   assert_eq(ansi_feed('\x1a', &state, &param_count, params), ANSI_NONE);
   assert_eq(state, 0);
+  ansi_reset(&state, &param_count, params);
+
+  assert_eq(ansi_feed('\x1b', &state, &param_count, params), ANSI_NONE);
+  assert_eq(ansi_feed('O',    &state, &param_count, params), ANSI_NONE);
+  assert_eq(ansi_feed('A',    &state, &param_count, params), ANSI_CURSOR_UP);
+  ansi_reset(&state, &param_count, params);
+
+  assert_eq(ansi_feed('\x1b', &state, &param_count, params), ANSI_NONE);
+  assert_eq(ansi_feed('[',    &state, &param_count, params), ANSI_NONE);
+  assert_eq(ansi_feed('3',    &state, &param_count, params), ANSI_NONE);
+  assert_eq(ansi_feed('~',    &state, &param_count, params), ANSI_DELETE);
 }
 
 void simpleterm(void) {
@@ -163,9 +174,35 @@ void simpleterm_render_ansi_pager(void) {
 
   char rendered[512];
   assert(gfxt_export_text(rendered, sizeof(rendered)) > 0);
-  if (strstr(rendered, "[m") != NULL) printf("\nrendered:\n%s\n", rendered);
+  assert(strstr(rendered, "[") == NULL);
   assert(strstr(rendered, "[m") == NULL);
   assert(strstr(rendered, "test") != NULL);
+}
+
+void simpleterm_editing_keys(void) {
+  simple_prompt = 1;
+  gfx_set_font(&font5x7);
+  gfxt_set_prompt_handler(get_prompt);
+  gfxt_set_history_handler(add_history, get_history);
+  gfxt_init(32, 4);
+
+  gfxt_on_key('a');
+  gfxt_on_key('b');
+  gfxt_on_key('c');
+  gfxt_on_key(EVT_KEY_LEFT);
+  gfxt_on_key(EVT_KEY_LEFT);
+  gfxt_on_key(EVT_KEY_LEFT);
+  gfxt_on_key(EVT_KEY_DELETE);
+  assert_escstr_eq(get_buffer(), "\x1b[0m> bc", esc);
+  gfxt_on_key('\x1b');
+  gfxt_on_key('[');
+  gfxt_on_key('3');
+  gfxt_on_key('~');
+  assert_escstr_eq(get_buffer(), "\x1b[0m> c", esc);
+  gfxt_on_key(EVT_KEY_DELETE);
+  assert_escstr_eq(get_buffer(), "\x1b[0m> ", esc);
+  gfxt_on_key(EVT_KEY_BACKSPACE);
+  assert_escstr_eq(get_buffer(), "\x1b[0m> ", esc);
 }
 
 int main(void){
@@ -181,6 +218,10 @@ int main(void){
 
   begin_section("simpleterm_render_ansi_pager");
   simpleterm_render_ansi_pager();
+  end_section();
+
+  begin_section("simpleterm_editing_keys");
+  simpleterm_editing_keys();
   end_section();
 
   end_tests();

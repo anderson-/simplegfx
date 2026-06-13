@@ -16,6 +16,8 @@ extern volatile char gfxt_stdin;
 #define EVT_KEY_DOWN        3
 #define EVT_KEY_LEFT        4
 #define EVT_KEY_RIGHT       5
+#define EVT_KEY_BACKSPACE   6
+#define EVT_KEY_DELETE      7
 
 typedef struct {
   const char* name;

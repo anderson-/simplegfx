@@ -101,24 +101,16 @@ int gfx_on_key(char key, int down) {
 
   switch (key) {
     case BTN_KB_UP:
-      gfxt_on_key('\x1b');
-      gfxt_on_key('[');
-      gfxt_on_key('A');
+      gfxt_on_key(EVT_KEY_UP);
       return 0;
     case BTN_KB_DOWN:
-      gfxt_on_key('\x1b');
-      gfxt_on_key('[');
-      gfxt_on_key('B');
+      gfxt_on_key(EVT_KEY_DOWN);
       return 0;
     case BTN_KB_LEFT:
-      gfxt_on_key('\x1b');
-      gfxt_on_key('[');
-      gfxt_on_key('D');
+      gfxt_on_key(EVT_KEY_LEFT);
       return 0;
     case BTN_KB_RIGHT:
-      gfxt_on_key('\x1b');
-      gfxt_on_key('[');
-      gfxt_on_key('C');
+      gfxt_on_key(EVT_KEY_RIGHT);
       return 0;
     case BTN_KB_CTRL:
       gfxt_on_key('\x1b');
@@ -128,10 +120,10 @@ int gfx_on_key(char key, int down) {
       gfxt_on_key('\n');
       return 0;
     case BTN_KB_BACKSPACE:
-      gfxt_on_key('\b');
+      gfxt_on_key(EVT_KEY_BACKSPACE);
       return 0;
     case BTN_KB_DELETE:
-      gfxt_on_key('\x7f');
+      gfxt_on_key(EVT_KEY_DELETE);
       return 0;
     case BTN_KB_ESCAPE:
       gfxt_on_key(EVT_KEY_ESCAPE);

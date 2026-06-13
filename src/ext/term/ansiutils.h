@@ -245,6 +245,7 @@ extern uint8_t palette[16][3];
 #define ANSI_ERASE_LINE 9
 #define ANSI_SCROLL_UP 10
 #define ANSI_SCROLL_DOWN 11
+#define ANSI_DELETE 12
 
 void ansi_set_theme(int theme);
 void ansi_set_color(int color);

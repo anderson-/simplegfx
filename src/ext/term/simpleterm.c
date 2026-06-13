@@ -61,6 +61,8 @@ static int pager_waiting = 0;
 static int rendering = 0;
 static void (*overlay_fn)(void) = NULL;
 
+static void _fetch_history(int direction);
+
 #ifdef DEBUG
 #define _refresh_display() do { \
   display_refresh = GFX_DISPLAY_BUFFER_COUNT; \
@@ -147,6 +149,20 @@ void gfxt_init(int w_chars, int h_chars) {
   buffer = malloc(buffer_size);
   if (buffer == NULL) return;
   memset(buffer, 0, buffer_size);
+  first_line_end = 0;
+  last_line_start = 0;
+  input_start = 0;
+  cursor = 0;
+  current_char = 0;
+  draw_cursor = 0;
+  putchar_x = 0;
+  putchar_y = 0;
+  scroll = 0;
+  pager_lines = 0;
+  pager_quit = 0;
+  pager_waiting = 0;
+  ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
+  ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
   fg_color = default_fg_color;
   bg_color = default_bg_color;
   initialized = 1;
@@ -230,7 +246,6 @@ static inline void _check_resize() {
 }
 
 void _scroll_line() {
-  first_line_end++;
   char end = buffer[first_line_end];
   buffer[first_line_end] = '\0';
   if (scroll_push_fn) scroll_push_fn(buffer, -1);
@@ -262,8 +277,8 @@ void _scroll_line() {
     while (*p) {
       int action = ansi_feed(*p, &putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
       if (action == NON_ANSI_CHAR) {
-        _update_xy(*p, &putchar_x, &putchar_y, 1);
         current_char = p - buffer;
+        _update_xy(*p, &putchar_x, &putchar_y, 1);
       } else if (action > 0) {
         ansi_reset(&putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
       }
@@ -291,8 +306,31 @@ static inline void _del_at_cursor() {
     }
     buffer[cursor - 1] = '\0';
     cursor--;
-    draw_cursor--;
   }
+}
+
+static int _handle_key_event(uint8_t key) {
+  switch (key) {
+    case EVT_KEY_UP:
+      _fetch_history(1);
+      return 1;
+    case EVT_KEY_DOWN:
+      _fetch_history(-1);
+      return 1;
+    case EVT_KEY_RIGHT:
+      if (draw_cursor < cursor) draw_cursor++;
+      return 1;
+    case EVT_KEY_LEFT:
+      if (draw_cursor > input_start) draw_cursor--;
+      return 1;
+    case EVT_KEY_BACKSPACE:
+      _backspace_at_cursor();
+      return 1;
+    case EVT_KEY_DELETE:
+      _del_at_cursor();
+      return 1;
+  }
+  return 0;
 }
 
 void _append_at_cursor(char c) {
@@ -352,12 +390,13 @@ void gfxt_putchar(char c) {
 #if defined(DEBUG)
   ansi_debug_char(c);
 #endif
-  printf("%c", c);
-  fflush(stdout);
+  if (!key_input_process ||
+      (action == NON_ANSI_CHAR && c != '\b' && c != '\x7f' && c != '\t')) {
+    printf("%c", c);
+    fflush(stdout);
+  }
 
   if (action == NON_ANSI_CHAR) {
-    current_char = cursor == draw_cursor ? cursor : draw_cursor;
-    _update_xy(c, &putchar_x, &putchar_y, 1);
     if (c == '\b') {
       _backspace_at_cursor();
       return;
@@ -365,6 +404,8 @@ void gfxt_putchar(char c) {
       _del_at_cursor();
       return;
     } else if (c == '\n') {
+      current_char = cursor == draw_cursor ? cursor : draw_cursor;
+      _update_xy(c, &putchar_x, &putchar_y, 1);
       if (draw_cursor != cursor) {
         draw_cursor = cursor;
       }
@@ -399,6 +440,8 @@ void gfxt_putchar(char c) {
       _autocomplete();
       return;
     }
+    current_char = cursor == draw_cursor ? cursor : draw_cursor;
+    _update_xy(c, &putchar_x, &putchar_y, 1);
     if (cursor == draw_cursor) {
       current_char = cursor;
       buffer[cursor] = c;
@@ -427,22 +470,27 @@ void gfxt_putchar(char c) {
         break;
       case ANSI_CURSOR_UP:
         if (key_input_process) {
-          _fetch_history(1);
+          _handle_key_event(EVT_KEY_UP);
         }
         break;
       case ANSI_CURSOR_DOWN:
         if (key_input_process) {
-          _fetch_history(-1);
+          _handle_key_event(EVT_KEY_DOWN);
         }
         break;
       case ANSI_CURSOR_RIGHT:
         if (key_input_process) {
-          if (draw_cursor < cursor) draw_cursor++;
+          _handle_key_event(EVT_KEY_RIGHT);
         }
         break;
       case ANSI_CURSOR_LEFT:
         if (key_input_process) {
-          if (draw_cursor > input_start) draw_cursor--;
+          _handle_key_event(EVT_KEY_LEFT);
+        }
+        break;
+      case ANSI_DELETE:
+        if (key_input_process) {
+          _handle_key_event(EVT_KEY_DELETE);
         }
         break;
       case ANSI_CURSOR_POS:
@@ -707,6 +755,11 @@ void gfxt_on_key(uint8_t key) {
   _refresh_display();
 
   if (!gfxt_stdin) {
+    if (key >= EVT_KEY_ESCAPE && key <= EVT_KEY_DELETE) {
+      gfxt_stdin = key;
+      gfxt_stdin_state = 0;
+      return;
+    }
     if (key == '\x1b' && gfxt_stdin_state == 0) {
       gfxt_stdin_state = 1;
       return;
@@ -739,7 +792,9 @@ void gfxt_on_key(uint8_t key) {
   }
 
   key_input_process = 1;
-  gfxt_putchar(key);
+  if (!_handle_key_event(key)) {
+    gfxt_putchar(key);
+  }
   key_input_process = 0;
 }
 

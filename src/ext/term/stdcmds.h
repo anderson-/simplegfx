@@ -21,16 +21,16 @@ uint16_t simplehash(const char *str) {
 }
 
 int cmd_sleep(const char *args) {
-  double s = 0.0;
+  float s = 0.0;
 
-  int n = sscanf(args, "%lf", &s);
+  int n = sscanf(args, "%f", &s);
 
   if (n == 1 && s > 0.0) {
     long long target_us = (long long)(s * 1000000.0);
     struct timeval start;
     gettimeofday(&start, NULL);
-    double ema_us = 0.0;
-    const double alpha = 0.2;
+    float ema_us = 0.0;
+    const float alpha = 0.2;
     int first_iter = 1;
     struct timeval prev;
     gettimeofday(&prev, NULL);
@@ -43,10 +43,10 @@ int cmd_sleep(const char *args) {
       long long iter_us = (long long)(now.tv_sec  - prev.tv_sec)  * 1000000LL
                         + (long long)(now.tv_usec - prev.tv_usec);
       if (first_iter) {
-        ema_us = (double)iter_us;
+        ema_us = (float)iter_us;
         first_iter = 0;
       } else if (iter_us > 0) {
-        ema_us = alpha * (double)iter_us + (1.0 - alpha) * ema_us;
+        ema_us = alpha * (float)iter_us + (1.0 - alpha) * ema_us;
       }
       prev = now;
       if (gfx_yeld) gfx_yeld();
@@ -279,14 +279,15 @@ int cmd_play(const char *args) {
 }
 
 int cmd_watch(const char *args) {
-  int sec = 1, n = 0;
+  float sec = 1.0;
+  int n = 0;
   char cmd[128] = {0};
 
-  int matched = sscanf(args, "%d %d %127[^\n]", &sec, &n, cmd);
-  if (sec < 1) sec = 1;
+  int matched = sscanf(args, "%f %d %127[^\n]", &sec, &n, cmd);
+  if (sec < 0.05) sec = 0.05;
   int has_cmd = (matched >= 3 && cmd[0] != '\0');
 
-  gfxt_printf("watch every %ds", sec);
+  gfxt_printf("watch every %.2fs", sec);
   if (n > 0) gfxt_printf(" x %d", n);
   if (has_cmd) gfxt_printf(": %s", cmd);
   gfxt_printf("\n[press any key to stop]\n");
@@ -307,7 +308,7 @@ int cmd_watch(const char *args) {
       gettimeofday(&now, NULL);
       long long elapsed = (now.tv_sec - start.tv_sec) * 1000000LL
                         + (now.tv_usec - start.tv_usec);
-      if (elapsed >= sec * 1000000LL) break;
+      if (elapsed >= (long long)(sec * 1000000.0)) break;
       if (gfx_yeld) gfx_yeld();
       if (gfxt_stdin) { gfxt_stdin = 0; gfxt_println("cancelled"); return 0; }
     }

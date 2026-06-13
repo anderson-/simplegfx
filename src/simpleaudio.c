@@ -45,6 +45,7 @@ static int _mix_fill(int16_t *out, int n, void *user) {
     if (r < n) {
       apply_fade_out(ch->buf, r);
       for (int i = r; i < n; i++) ch->buf[i] = 0;
+      ch->fn(NULL, 0, ch->data); // cleanup
       ch->fn = NULL;
     }
   }
@@ -168,6 +169,7 @@ void gfxa_set_volume(int channel, int vol) {
 typedef struct { int freq, sr, pos, len; } beep_t;
 
 static int _beep_fill(int16_t *buf, int n, void *user) {
+  if (!buf) return -1; // cleanup
   beep_t *b = user;
   int i = 0;
   while (i < n && b->pos < b->len) {

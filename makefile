@@ -56,6 +56,12 @@ $(foreach p,$(PLATFORMS),$(addprefix $(p)-, $(EXAMPLES))): %:
 	${CC} examples/$(EXAM).c ${SOURCES} ${CFLAGS} ${PLATFORM_FLAGS_$(PLAT)} -o ${BUILD}/$*
 	chmod +x ${BUILD}/$*
 
+.PHONY: $(addprefix buffer-,$(EXAMPLES))
+$(addprefix buffer-,$(EXAMPLES)): buffer-%:
+	mkdir -p ${BUILD}
+	${CC} examples/$*.c ${SOURCES} ${CFLAGS} -DGFX_BUFFER -DGFX_HEADLESS src/backends/gfx_buffer.c src/backends/gfx_headless.c -o ${BUILD}/buffer-$*
+	chmod +x ${BUILD}/buffer-$*
+
 # ── debug builds ─────────────────────────────────────────────────────────────
 
 .PHONY: $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-debug))

@@ -5,6 +5,9 @@
 #include "ansiutils.h"
 #include "microcuts.h"
 
+char * get_buffer(void);
+int gfxt_export_text(char *out, int out_size);
+
 int simple_prompt = 0;
 
 char* get_prompt(void) {
@@ -55,6 +58,19 @@ char* get_history(int index) {
   return history[history_count - 1 - index];
 }
 
+int cmd_test_ansi(const char *args) {
+  (void)args;
+  for (int row = 0; row < 11; row++) {
+    for (int col = 0; col < 10; col++) {
+      int n = 10 * row + col;
+      if (n > 109) break;
+      gfxt_printf("\033[%dm %3d\033[m", n, n);
+    }
+    gfxt_println("");
+  }
+  return 0;
+}
+
 void ansi_parser(void) {
   int state = 0, param_count = 0, params[8] = {0};
 
@@ -92,9 +108,9 @@ void ansi_parser(void) {
 
 void simpleterm(void) {
   gfx_set_font(&font5x7);
-  gfxt_init(64, 6);
   gfxt_set_prompt_handler(get_prompt);
   gfxt_set_history_handler(add_history, get_history);
+  gfxt_init(64, 6);
 
   // should start with prompt
   assert_escstr_eq(get_buffer(), "\x1b[0m\x1b[32mtest\x1b[0m> ", esc);
@@ -128,6 +144,30 @@ void simpleterm(void) {
   //print_buffer();
 }
 
+void simpleterm_render_ansi_pager(void) {
+  simple_prompt = 0;
+  gfx_set_font(&font5x7);
+  gfxt_set_prompt_handler(get_prompt);
+  gfxt_set_history_handler(add_history, get_history);
+  gfxt_init(64, 6);
+  gfxt_register_cmd("ansi", "test ansi", cmd_test_ansi);
+
+  gfxt_on_key('a');
+  gfxt_on_key('n');
+  gfxt_on_key('s');
+  gfxt_on_key('i');
+  gfxt_on_key('\n');
+  gfxt_on_key('\n');
+  gfxt_on_key('\n');
+  gfxt_on_key('\n');
+
+  char rendered[512];
+  assert(gfxt_export_text(rendered, sizeof(rendered)) > 0);
+  if (strstr(rendered, "[m") != NULL) printf("\nrendered:\n%s\n", rendered);
+  assert(strstr(rendered, "[m") == NULL);
+  assert(strstr(rendered, "test") != NULL);
+}
+
 int main(void){
   start_tests();
 
@@ -137,6 +177,10 @@ int main(void){
 
   begin_section("simpleterm");
   simpleterm();
+  end_section();
+
+  begin_section("simpleterm_render_ansi_pager");
+  simpleterm_render_ansi_pager();
   end_section();
 
   end_tests();

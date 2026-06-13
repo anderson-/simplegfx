@@ -269,6 +269,7 @@ void _scroll_line() {
       }
       p++;
     }
+    scroll = 0;
   }
 }
 
@@ -355,6 +356,7 @@ void gfxt_putchar(char c) {
   fflush(stdout);
 
   if (action == NON_ANSI_CHAR) {
+    current_char = cursor == draw_cursor ? cursor : draw_cursor;
     _update_xy(c, &putchar_x, &putchar_y, 1);
     if (c == '\b') {
       _backspace_at_cursor();
@@ -790,5 +792,32 @@ void gfxt_set_overlay(void (*_overlay_fn)(void)) {
 #ifdef TEST
 char * get_buffer(void) {
   return buffer;
+}
+
+int gfxt_export_text(char *out, int out_size) {
+  int x = 0, y = 0;
+  int st = 0, pc = 0, params[8] = {0};
+  int stride = width + 1;
+  if (!out || out_size <= 0) return 0;
+  memset(out, 0, out_size);
+  if (!initialized) return 0;
+  if (stride * height >= out_size) return 0;
+  for (int row = 0; row < height; row++) {
+    memset(out + row * stride, ' ', width);
+    out[row * stride + width] = '\n';
+  }
+  for (char *p = buffer; *p; p++) {
+    int action = ansi_feed(*p, &st, &pc, params);
+    if (action == NON_ANSI_CHAR) {
+      if (*p != '\n' && *p != '\r' && x >= 0 && x < width && y >= 0 && y < height)
+        out[y * stride + x] = *p;
+      _update_xy(*p, &x, &y, 0);
+      if (y >= height) break;
+    } else if (action > 0) {
+      ansi_reset(&st, &pc, params);
+    }
+  }
+  out[stride * height] = '\0';
+  return stride * height;
 }
 #endif

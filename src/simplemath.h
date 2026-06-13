@@ -7,7 +7,6 @@
 #define M_PI 3.14159265f
 #endif
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif

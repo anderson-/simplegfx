@@ -1,5 +1,10 @@
 #include "simplegfx.h"
 
+#if defined(ESP_PLATFORM) || defined(ESP32)
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#endif
+
 #if defined(GFX_BUFFER) || !(defined(GFX_SDL) || defined(GFX_SDL2))
 
 static uint16_t currentColor = 0xFFFF;
@@ -49,6 +54,9 @@ void gfx_run(void) {
 }
 
 void gfx_delay(int ms) {
+#if defined(ESP_PLATFORM) || defined(ESP32)
+  if (ms > 0) vTaskDelay(pdMS_TO_TICKS(ms));
+#endif
 }
 
 __attribute__((weak)) void gfxa_raw_stream(audio_stream_t fn) {

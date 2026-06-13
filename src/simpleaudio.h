@@ -4,11 +4,11 @@
 #include <stdint.h>
 
 #define GFXA_CHANNELS 4
-#define GFXA_BUF_SIZE 256
-#define GFXA_SAMPLE_RATE 16000
+#define GFXA_BUF_SIZE 480
+#define GFXA_SAMPLE_RATE 24000
 
 typedef int (*audio_stream_t)(int16_t *buf, int n, void *data);
-typedef void (*audio_ctrl_t)(void *ctrl_data);
+typedef void (*audio_ctrl_t)(void *ctrl_data, void *data);
 
 extern float gfx_volume;
 

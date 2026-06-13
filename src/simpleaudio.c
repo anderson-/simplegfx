@@ -47,7 +47,7 @@ static int _mix_fill(int16_t *out, int n, void *user) {
       ch->playing = 0;
       continue;
     }
-    if (ch->ctrl) ch->ctrl(ch->ctrl_data);
+    if (ch->ctrl) ch->ctrl(ch->ctrl_data, ch->data);
     int r = ch->fn(ch->buf, n, ch->data);
     if (r < n) {
       apply_fade_out(ch->buf, r);

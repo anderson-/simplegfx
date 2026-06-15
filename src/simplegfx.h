@@ -43,12 +43,14 @@ extern int full_kb;
 extern int spacing;
 extern int boxdrawing;
 
-extern void (* gfx_yeld)();
-
 // API functions
 int gfx_setup(void);
 void gfx_cleanup(void);
 void gfx_run(void);
+void gfx_loop(void);
+
+#define gfx_yield() gfx_loop()
+
 void gfx_clear(void);
 void gfx_set_color(int r, int g, int b);
 void gfx_point(int x, int y);

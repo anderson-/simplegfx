@@ -521,8 +521,8 @@ void gfxt_clear() {
 char gfxt_getchar() {
   busy = 0;
   gfxt_stdin = 0;
-  while (gfx_yeld && !gfxt_stdin) {
-    gfx_yeld();
+  while (!gfxt_stdin) {
+    gfx_yield();
   }
   return gfxt_stdin;
 }

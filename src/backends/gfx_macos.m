@@ -233,7 +233,7 @@ static uint64_t mono_ns(void) {
 
 int gfx_setup(void) { return 0; }
 
-static void loop(void) {
+void gfx_loop(void) {
   NSEvent *e;
   while ((e = [NSApp nextEventMatchingMask:NSEventMaskAny
                                  untilDate:nil
@@ -247,7 +247,6 @@ void gfx_run(void) {
   [NSApplication sharedApplication];
   [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
   [NSApp setDelegate:[[AppDelegate alloc] init]];
-  gfx_yeld = loop;
   [NSApp run];
 }
 

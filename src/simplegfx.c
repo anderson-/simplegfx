@@ -10,8 +10,6 @@ int full_kb = 0;
 int spacing = 1;
 int boxdrawing = 0;
 
-void (* gfx_yeld)() = NULL;
-
 void gfx_set_font(font_t * font) {
   _font = font;
   if (_font == NULL) {

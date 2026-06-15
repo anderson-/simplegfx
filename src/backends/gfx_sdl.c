@@ -184,7 +184,7 @@ static int pwrdown = 0;
 static int screenshot_trigger = 0;
 #endif
 
-static void loop() {
+void gfx_loop() {
   start = SDL_GetTicks();
   while (SDL_PollEvent(&event)) {
     char key = (char)event.key.keysym.sym;
@@ -254,12 +254,10 @@ static void loop() {
 }
 
 void gfx_run(void) {
-  gfx_yeld = loop;
-
   gfx_app(1);
 
   while (!exit_app) {
-    loop();
+    gfx_loop();
   }
 }
 

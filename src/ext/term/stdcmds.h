@@ -35,7 +35,7 @@ int cmd_sleep(const char *args) {
         ema_us = alpha * (float)iter_us + (1.0 - alpha) * ema_us;
       }
       prev = now;
-      if (gfx_yeld) gfx_yeld();
+      gfx_yield();
     }
   } else {
     gfxt_println(TERM_RED "usage: sleep <seconds>" TERM_RESET);
@@ -190,7 +190,7 @@ int cmd_watch(const char *args) {
       long long elapsed = (now.tv_sec - start.tv_sec) * 1000000LL
                         + (now.tv_usec - start.tv_usec);
       if (elapsed >= (long long)(sec * 1000000.0)) break;
-      if (gfx_yeld) gfx_yeld();
+      gfx_yield();
       if (gfxt_stdin) { gfxt_stdin = 0; gfxt_println("cancelled"); return 0; }
     }
   }

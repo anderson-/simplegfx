@@ -7,8 +7,20 @@
 #define GFXA_BUF_SIZE 480
 #define GFXA_SAMPLE_RATE 24000
 
+typedef struct channel_s channel_t;
+
 typedef int (*audio_stream_t)(int16_t *buf, int n, void *data);
-typedef void (*audio_ctrl_t)(void *ctrl_data, void *data);
+typedef void (*audio_ctrl_t)(channel_t *ch, void *ctrl_data, void *data);
+
+struct channel_s {
+  int16_t buf[GFXA_BUF_SIZE];
+  audio_stream_t fn;
+  void *data;
+  audio_ctrl_t ctrl;
+  void *ctrl_data;
+  int playing;
+  float vol;
+};
 
 extern float gfx_volume;
 

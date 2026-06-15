@@ -4,17 +4,7 @@
 
 float gfx_volume = 1;
 
-typedef struct {
-  int16_t buf[GFXA_BUF_SIZE];
-  audio_stream_t fn;
-  void *data;
-  audio_ctrl_t ctrl;
-  void *ctrl_data;
-  int playing;
-  float vol;
-} chan_t;
-
-static chan_t chans[GFXA_CHANNELS];
+static channel_t chans[GFXA_CHANNELS];
 
 static void apply_fade_out(int16_t *buf, int n) {
   for (int i = 0; i < n; i++)
@@ -25,7 +15,7 @@ static int _mix_fill(int16_t *out, int n, void *user) {
   for (int i = 0; i < n; i++) {
     int32_t sum = 0;
     for (int c = 0; c < GFXA_CHANNELS; c++) {
-      chan_t *ch = &chans[c];
+      channel_t *ch = &chans[c];
       if (!ch->playing) continue;
       int v = ch->vol;
       if (v <= 1 || v < 0)
@@ -39,7 +29,7 @@ static int _mix_fill(int16_t *out, int n, void *user) {
     out[i] = (int16_t)sum;
   }
   for (int c = 0; c < GFXA_CHANNELS; c++) {
-    chan_t *ch = &chans[c];
+    channel_t *ch = &chans[c];
     if (!ch->playing) continue;
     if (!ch->fn) {
       for (int i = 0; i < GFXA_BUF_SIZE; i++) ch->buf[i] = 0;
@@ -47,7 +37,7 @@ static int _mix_fill(int16_t *out, int n, void *user) {
       ch->playing = 0;
       continue;
     }
-    if (ch->ctrl) ch->ctrl(ch->ctrl_data, ch->data);
+    if (ch->ctrl) ch->ctrl(ch, ch->ctrl_data, ch->data);
     int r = ch->fn(ch->buf, n, ch->data);
     if (r < n) {
       apply_fade_out(ch->buf, r);
@@ -74,7 +64,7 @@ int gfxa_play(audio_stream_t fn, void *data, int channel) {
   }
 
   if (c < 0 || c >= GFXA_CHANNELS) return -1;
-  chan_t *ch = &chans[c];
+  channel_t *ch = &chans[c];
   if (!ch->playing) {
     for (int i = 0; i < GFXA_BUF_SIZE; i++) ch->buf[i] = 0;
     ch->playing = 1;
@@ -122,7 +112,7 @@ int gfxa_play(audio_stream_t fn, void *data, int channel) {
   return c;
 }
 
-static void chan_stop(chan_t *ch) {
+static void chan_stop(channel_t *ch) {
   if (!ch->playing) return;
   apply_fade_out(ch->buf, GFXA_BUF_SIZE);
   ch->fn = NULL;

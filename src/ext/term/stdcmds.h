@@ -2,23 +2,9 @@
 
 #include "ansiutils.h"
 #include "simpleterm.h"
-#include "ext/audio/rtttl.h"
 #include <sys/time.h>
-#include <time.h>
-#include <stdio.h>
-#include <string.h>
 
 char input_buffer[128] = {0};
-char username[32] = {0};
-uint16_t password_hash = 0;
-
-uint16_t simplehash(const char *str) {
-  uint16_t hash = 0;
-  while (*str) {
-    hash = hash * 31 + *str++;
-  }
-  return hash;
-}
 
 int cmd_sleep(const char *args) {
   float s = 0.0;
@@ -138,81 +124,6 @@ int cmd_time(const char *args) {
   return code;
 }
 
-int cmd_login(const char *args) {
-  int ask_username = 1;
-  if (args[0] != '\0') {
-    gfxt_printf("[%s]", args);
-    if (strcmp(args, username) != 0) {
-      return 1;
-    }
-    ask_username = 0;
-  }
-  if (ask_username) {
-    gfxt_printf(TERM_CYAN "username: " TERM_RESET);
-    cmd_read("0");
-    if (strlen(username) == 0) {
-      strcpy(username, input_buffer);
-      gfxt_printf("name set to: %s\n", username);
-    } else if (strcmp(username, input_buffer) != 0) {
-      return 1;
-    }
-  }
-  gfxt_printf(TERM_CYAN "password: " TERM_RESET);
-  cmd_read("1");
-  if (password_hash == 0) {
-    password_hash = simplehash(input_buffer);
-  } else if (simplehash(input_buffer) != password_hash) {
-    return 1;
-  }
-  gfxt_printf(TERM_GREEN "login successful\n" TERM_RESET);
-  return 0;
-}
-
-int cmd_ansi(const char *args) {
-  int row, col, n;
-  for (row = 0; row < 11; row++) {
-    for (col = 0; col < 10; col++) {
-      n = 10 * row + col;
-      if (n > 109) break;
-      gfxt_printf("\033[%dm %3d\033[m", n, n);
-    }
-    gfxt_println("");
-  }
-  return 0;
-}
-
-int cmd_palette(const char *args) {
-  for (int bg = 40; bg <= 47; bg++) {
-    gfxt_printf("%d \x1b[%dm", bg, bg);
-    for (int fg = 30; fg <= 37; fg++) {
-      gfxt_printf("\x1b[%dm%d ", fg, fg);
-    }
-    gfxt_printf("\x1b[m\n");
-  }
-  gfxt_printf("40 \x1b[m");
-  for (int i = 90; i <= 97; i++) {
-    gfxt_printf("\x1b[%dm%d ", i, i);
-  }
-  gfxt_printf("\x1b[m\n");
-  return 0;
-}
-
-int cmd_ascii(const char *args) {
-  int w;
-  gfxt_get_size(&w, NULL);
-  int max_cols = (w - 2) / 5;
-  for (int i = 0; i < 256; i++) {
-    if ((i == 0 || i == '\x1b' || i == '\n' || i == '\r' || i == '\b' || i == '\t' || i == '\x7f')) {
-      gfxt_printf(TERM_BBLACK "%02x " TERM_YELLOW "! ", i);
-    } else {
-      gfxt_printf(TERM_BBLACK "%02x " TERM_RESET "%c ", i, i);
-    }
-    if ((i + 1) % max_cols == 0) gfxt_println("");
-  }
-  gfxt_println("");
-  return 0;
-}
-
 int cmd_theme(const char *args) {
   int id = -1;
   sscanf(args, "%d", &id);
@@ -240,42 +151,12 @@ int cmd_date(const char *args) {
   return 0;
 }
 
-int cmd_boxdrawing(const char *args) {
-  boxdrawing = !boxdrawing;
-  gfxt_println("\xda\xc4\xc2\xbf  \xc9\xcd\xcb\xbb  \xd6\xc4\xd2\xb7  \xd5\xcd\xd1\xb8");
-  gfxt_println("\xb3 \xb3\xb3  \xba \xba\xba  \xba \xba\xba  \xb3 \xb3\xb3");
-  gfxt_println("\xc3\xc4\xc5\xb4  \xcc\xcd\xce\xb9  \xc7\xc4\xd7\xb6  \xc6\xcd\xd8\xb5");
-  gfxt_println("\xc0\xc4\xc1\xd9  \xc8\xcd\xca\xbc  \xd3\xc4\xd0\xbd  \xd4\xcd\xcf\xbe");
-  gfxt_println("\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xbf");
-  gfxt_println("\xb3  \xc9\xcd\xcd\xcd\xbb Some Text  \xb3\xb1");
-  gfxt_println("\xb3  \xc8\xcd\xcb\xcd\xbc in the box \xb3\xb1");
-  gfxt_println("\xc6\xcd\xd1\xcd\xcd\xca\xcd\xcd\xd1\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xcd\xb5\xb1");
-  gfxt_println("\xb3 \xc3\xc4\xc4\xc2\xc4\xc4\xb4           \xb3\xb1");
-  gfxt_println("\xb3 \xc0\xc4\xc4\xc1\xc4\xc4\xd9           \xb3\xb1");
-  gfxt_println("\xc0\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xc4\xd9\xb1");
-  gfxt_println(" \xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1");
-  return 0;
-}
-
 int cmd_beep(const char *args) {
   int frequency = 440;
   int duration = 50;
   sscanf(args, "%d %d", &frequency, &duration);
   gfx_beep(frequency, duration);
   return 0;
-}
-
-int cmd_play(const char *args) {
-  if (!args || !args[0]) {
-    gfxa_rtttl_play("scale_up:d=32,o=5,b=100:c,c#,d#,e,f#,g#,a#,b", NULL);
-    return 0;
-  }
-  int result = gfxa_rtttl_play(args, NULL);
-  if (result != 0) {
-    gfx_beep(880, 120);
-    gfxt_println(TERM_RED "invalid RTTTL format" TERM_RESET);
-  }
-  return result;
 }
 
 int cmd_watch(const char *args) {
@@ -331,15 +212,9 @@ void gfxt_std_cmd_reg() {
   gfxt_register_cmd("read", "read input", cmd_read);
   gfxt_register_cmd("eval", "evaluate command", cmd_eval);
   gfxt_register_cmd("time", "time command execution", cmd_time);
-  gfxt_register_cmd("login", "login", cmd_login);
-  gfxt_register_cmd("ansi", "ANSI color codes", cmd_ansi);
-  gfxt_register_cmd("palette", "print color palette", cmd_palette);
-  gfxt_register_cmd("ascii", "print ASCII table", cmd_ascii);
   gfxt_register_cmd("theme", "[id] set color theme", cmd_theme);
   gfxt_register_cmd("date", "current date/time", cmd_date);
-  gfxt_register_cmd("boxdrawing", "print box drawing characters", cmd_boxdrawing);
   gfxt_register_cmd("beep", "[freq] [ms] beep", cmd_beep);
-  gfxt_register_cmd("play", "[rtttl] play RTTTL melody", cmd_play);
   gfxt_register_cmd("watch", "[s] [n] [cmd] run cmd periodically", cmd_watch);
   gfxt_register_cmd("help", "list available commands", cmd_help);
 }

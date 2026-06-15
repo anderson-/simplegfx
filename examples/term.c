@@ -5,10 +5,13 @@
 #include <sys/select.h>
 #include "simplegfx.h"
 #include "ext/term/simpleterm.h"
-#include "ext/term/stdcmds.h"
-#include "ext/term/dialogs.h"
+#include "ext/term/dialogutils.h"
 #include "ext/term/cliutils.h"
 #include "ext/term/statusbar.h"
+
+#include "ext/term/stdcmds.h"
+#include "ext/term/testcmds.h"
+#include "ext/audio/audiocmds.h"
 
 #define HISTORY_SIZE 50
 
@@ -67,7 +70,8 @@ void gfx_app(int init) {
   gfxt_set_prompt_handler(get_prompt);
   gfxt_set_history_handler(history_push_fn, history_prev_fn);
   gfxt_std_cmd_reg();
-  dialog_cmd_reg();
+  gfxt_test_cmd_reg();
+  gfxt_audio_cmd_reg();
   cliutils_cmd_reg();
   gfxt_init(w, h - 1);
   gfxt_set_drawing_params(x, y + fh, fsize);

@@ -4,17 +4,8 @@
 
 float gfx_volume = 1;
 
-typedef struct {
-  int16_t buf[GFXA_BUF_SIZE];
-  audio_stream_t fn;
-  void *data;
-  audio_ctrl_t ctrl;
-  void *ctrl_data;
-  int playing;
-  float vol;
-} chan_t;
-
 static chan_t chans[GFXA_CHANNELS];
+static int mixer_started = 0;
 
 static void apply_fade_out(int16_t *buf, int n) {
   for (int i = 0; i < n; i++)
@@ -40,6 +31,7 @@ static int _mix_fill(int16_t *out, int n, void *user) {
   }
   for (int c = 0; c < GFXA_CHANNELS; c++) {
     chan_t *ch = &chans[c];
+    if (ch->ctrl) ch->ctrl(ch, ch->ctrl_data);
     if (!ch->playing) continue;
     if (!ch->fn) {
       for (int i = 0; i < GFXA_BUF_SIZE; i++) ch->buf[i] = 0;
@@ -47,7 +39,6 @@ static int _mix_fill(int16_t *out, int n, void *user) {
       ch->playing = 0;
       continue;
     }
-    if (ch->ctrl) ch->ctrl(ch->ctrl_data, ch->data);
     int r = ch->fn(ch->buf, n, ch->data);
     if (r < n) {
       apply_fade_out(ch->buf, r);
@@ -59,28 +50,25 @@ static int _mix_fill(int16_t *out, int n, void *user) {
   return n;
 }
 
-int gfxa_play(audio_stream_t fn, void *data, int channel) {
-  static int started = 0;
-  if (!fn) return -1;
-
-  int c = channel;
-  if (c < 0) {
-    for (int i = 0; i < GFXA_CHANNELS; i++) {
-      if (!chans[i].playing) {
-        c = i;
-        break;
-      }
-    }
+static void mixer_start(void) {
+  if (mixer_started) return;
+  mixer_started = 1;
+  gfxa_raw_stream(_mix_fill);
+  for (int c = 0; c < GFXA_CHANNELS; c++) {
+    chans[c].vol = 1;
+    chans[c].ctrl = NULL;
+    chans[c].ctrl_data = NULL;
   }
+}
 
-  if (c < 0 || c >= GFXA_CHANNELS) return -1;
-  chan_t *ch = &chans[c];
+void gfxa_chan_play(chan_t *ch, audio_stream_t fn, void *data) {
+  if (!ch || !fn) return;
+
   if (!ch->playing) {
     for (int i = 0; i < GFXA_BUF_SIZE; i++) ch->buf[i] = 0;
     ch->playing = 1;
     ch->fn = fn;
     ch->data = data;
-    if (channel < 0) ch->vol = 1;
     int r = fn(ch->buf, GFXA_BUF_SIZE, data);
     if (r < GFXA_BUF_SIZE) {
       for (int i = r; i < GFXA_BUF_SIZE; i++)
@@ -95,6 +83,7 @@ int gfxa_play(audio_stream_t fn, void *data, int channel) {
   } else {
     int16_t tmp[GFXA_BUF_SIZE];
     memcpy(tmp, ch->buf, GFXA_BUF_SIZE * sizeof(int16_t));
+    if (ch->fn) ch->fn(NULL, 0, ch->data);
     ch->fn = fn;
     ch->data = data;
     int r = fn(ch->buf, GFXA_BUF_SIZE, data);
@@ -110,22 +99,37 @@ int gfxa_play(audio_stream_t fn, void *data, int channel) {
       );
     }
   }
+}
 
-  if (started) return c;
-  started = 1;
-  gfxa_raw_stream(_mix_fill);
-  for (int c = 0; c < GFXA_CHANNELS; c++) {
-    chans[c].vol = 1;
-    chans[c].ctrl = NULL;
-    chans[c].ctrl_data = NULL;
+void gfxa_chan_stop(chan_t *ch) {
+  if (!ch || !ch->playing) return;
+  apply_fade_out(ch->buf, GFXA_BUF_SIZE);
+  ch->fn = NULL;
+}
+
+int gfxa_play(audio_stream_t fn, void *data, int channel) {
+  if (!fn) return -1;
+
+  int c = channel;
+  if (c < 0) {
+    for (int i = 0; i < GFXA_CHANNELS; i++) {
+      if (!chans[i].playing) {
+        c = i;
+        break;
+      }
+    }
   }
+
+  if (c < 0 || c >= GFXA_CHANNELS) return -1;
+  chan_t *ch = &chans[c];
+  if (channel < 0) ch->vol = 1;
+  gfxa_chan_play(ch, fn, data);
+  mixer_start();
   return c;
 }
 
 static void chan_stop(chan_t *ch) {
-  if (!ch->playing) return;
-  apply_fade_out(ch->buf, GFXA_BUF_SIZE);
-  ch->fn = NULL;
+  gfxa_chan_stop(ch);
 }
 
 void gfxa_stop(int channel) {
@@ -169,6 +173,7 @@ void gfxa_set_volume(int channel, float vol) {
 }
 
 void gfxa_set_ctrl(int channel, audio_ctrl_t fn, void *ctrl_data) {
+  mixer_start();
   if (channel < 0) {
     for (int i = 0; i < GFXA_CHANNELS; i++) {
       chans[i].ctrl = fn;

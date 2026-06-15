@@ -4,6 +4,7 @@
 
 static uint16_t currentColor = 0xFFFF;
 static uint16_t frameBuffer[WINDOW_WIDTH * WINDOW_HEIGHT];
+static audio_stream_t buffer_audio_fn = NULL;
 
 uint16_t* gfx_get_frame_buffer(void) {
   return frameBuffer;
@@ -52,8 +53,12 @@ __attribute__((weak)) void gfx_delay(int ms) {
 }
 
 __attribute__((weak)) void gfxa_raw_stream(audio_stream_t fn) {
+  buffer_audio_fn = fn;
+}
+
+void gfx_buffer_audio_step(void) {
   int16_t buf[GFXA_BUF_SIZE];
-  while (fn(buf, GFXA_BUF_SIZE, NULL) > 0);
+  if (buffer_audio_fn) buffer_audio_fn(buf, GFXA_BUF_SIZE, NULL);
 }
 
 #endif

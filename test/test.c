@@ -92,9 +92,9 @@ void ansi_parser(void) {
 
 void simpleterm(void) {
   gfx_set_font(&font5x7);
-  gfxt_init(64, 6);
   gfxt_set_prompt_handler(get_prompt);
   gfxt_set_history_handler(add_history, get_history);
+  gfxt_init(64, 6);
 
   // should start with prompt
   assert_escstr_eq(get_buffer(), "\x1b[0m\x1b[32mtest\x1b[0m> ", esc);
@@ -128,6 +128,47 @@ void simpleterm(void) {
   //print_buffer();
 }
 
+void simpleterm_stdio_parity(void) {
+  simple_prompt = 1;
+  gfx_set_font(&font5x7);
+  gfxt_set_prompt_handler(get_prompt);
+
+  gfxt_init(16, 4);
+  gfxt_clear();
+  gfxt_stdin = 0;
+  gfxt_feed_char('\x1b');
+  gfxt_feed_char('[');
+  gfxt_feed_char('A');
+  assert_eq(gfxt_stdin, EVT_KEY_UP);
+
+  gfxt_stdin = 0;
+  gfxt_feed_char('\x1b');
+  gfxt_feed_char('[');
+  gfxt_feed_char('C');
+  assert_eq(gfxt_stdin, EVT_KEY_RIGHT);
+
+  gfxt_init(8, 3);
+  gfxt_clear();
+  gfxt_printf("abc\x1b[1;2HZ");
+  assert_str_eq(get_buffer(), "aZc");
+
+  gfxt_clear();
+  gfxt_printf("abcdef\x1b[1;3H\x1b[KZ");
+  assert_str_eq(get_buffer(), "abZ     ");
+
+  gfxt_clear();
+  gfxt_printf("A\x1b[2;1HB");
+  assert_str_eq(get_buffer(), "A       B");
+
+  assert_eq(gfxt_export_screenshot("/tmp/simpleterm-test.ppm"), 0);
+  FILE *f = fopen("/tmp/simpleterm-test.ppm", "rb");
+  assert(f != NULL);
+  char hdr[16] = {0};
+  fread(hdr, 1, 15, f);
+  fclose(f);
+  assert(hdr[0] == 'P' && hdr[1] == '6');
+}
+
 int main(void){
   start_tests();
 
@@ -137,6 +178,10 @@ int main(void){
 
   begin_section("simpleterm");
   simpleterm();
+  end_section();
+
+  begin_section("simpleterm_stdio_parity");
+  simpleterm_stdio_parity();
   end_section();
 
   end_tests();

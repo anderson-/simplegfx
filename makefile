@@ -56,6 +56,12 @@ $(foreach p,$(PLATFORMS),$(addprefix $(p)-, $(EXAMPLES))): %:
 	${CC} examples/$(EXAM).c ${SOURCES} ${CFLAGS} ${PLATFORM_FLAGS_$(PLAT)} -o ${BUILD}/$*
 	chmod +x ${BUILD}/$*
 
+.PHONY: $(addprefix buffer-,$(EXAMPLES))
+$(addprefix buffer-,$(EXAMPLES)): buffer-%:
+	mkdir -p ${BUILD}
+	${CC} examples/$*.c ${SOURCES} ${CFLAGS} -DGFX_BUFFER src/backends/gfx_buffer.c src/backends/gfx_headless.c -o ${BUILD}/buffer-$*
+	chmod +x ${BUILD}/buffer-$*
+
 # ── debug builds ─────────────────────────────────────────────────────────────
 
 .PHONY: $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-debug))
@@ -92,6 +98,13 @@ test:
 	${CC} test/test.c ${SOURCES} ${TEST} ${CFLAGS} -DTEST -o ${BUILD}/test
 	chmod +x ${BUILD}/test
 	./${BUILD}/test
+
+.PHONY: integration-test
+integration-test: buffer-term
+	sh test/integration_headless.sh build/buffer-term
+
+.PHONY: test-all
+test-all: test integration-test
 
 # ── rg35xx ───────────────────────────────────────────────────────────────────
 

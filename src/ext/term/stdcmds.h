@@ -181,6 +181,17 @@ int cmd_ansi(const char *args) {
   return 0;
 }
 
+int cmd_termshot(const char *args) {
+  char path[128] = "termshot.ppm";
+  if (args && args[0]) sscanf(args, "%127s", path);
+  if (gfxt_export_screenshot(path) != 0) {
+    gfxt_printf(TERM_RED "termshot: failed to write %s\n" TERM_RESET, path);
+    return 1;
+  }
+  gfxt_printf(TERM_GREEN "termshot: wrote %s\n" TERM_RESET, path);
+  return 0;
+}
+
 int cmd_palette(const char *args) {
   for (int bg = 40; bg <= 47; bg++) {
     gfxt_printf("%d \x1b[%dm", bg, bg);
@@ -333,6 +344,7 @@ void gfxt_std_cmd_reg() {
   gfxt_register_cmd("time", "time command execution", cmd_time);
   gfxt_register_cmd("login", "login", cmd_login);
   gfxt_register_cmd("ansi", "ANSI color codes", cmd_ansi);
+  gfxt_register_cmd("termshot", "[file.ppm] export virtual terminal screenshot", cmd_termshot);
   gfxt_register_cmd("palette", "print color palette", cmd_palette);
   gfxt_register_cmd("ascii", "print ASCII table", cmd_ascii);
   gfxt_register_cmd("theme", "[id] set color theme", cmd_theme);

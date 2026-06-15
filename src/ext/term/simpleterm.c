@@ -46,6 +46,9 @@ static int pos_x = 0;
 static int pos_y = 0;
 volatile char gfxt_stdin = 1;
 int gfxt_stdin_state = 0;
+static unsigned char stdin_q[256];
+static int stdin_qhead = 0, stdin_qtail = 0;
+static int stdin_waiting = 0;
 int cursor_color = 7;
 int frame = 0;
 int scroll = 0;
@@ -69,6 +72,27 @@ static void (*overlay_fn)(void) = NULL;
 #else
 #define _refresh_display() display_refresh = GFX_DISPLAY_BUFFER_COUNT;
 #endif
+
+static int stdin_q_empty(void) { return stdin_qhead == stdin_qtail; }
+static void stdin_q_push(unsigned char c) {
+  int nt = (stdin_qtail + 1) & 255;
+  if (nt == stdin_qhead) return;
+  stdin_q[stdin_qtail] = c;
+  stdin_qtail = nt;
+}
+static int stdin_q_pop(void) {
+  if (stdin_q_empty()) return -1;
+  int c = stdin_q[stdin_qhead];
+  stdin_qhead = (stdin_qhead + 1) & 255;
+  return c;
+}
+
+static void stdin_pump_queue(void) {
+  while (!gfxt_stdin && !stdin_q_empty()) {
+    int c = stdin_q_pop();
+    if (c >= 0) gfxt_feed_char((char)c);
+  }
+}
 
 void gfxt_register_cmd(const char* name, const char* help, int (*func)(const char*)) {
   if (gfxt_cmd_registry_len < MAX_COMMANDS) {
@@ -129,6 +153,7 @@ static void _prompt() {
   draw_cursor = cursor;
   history_index = -1;
   busy = 0;
+  stdin_waiting = 0;
 }
 
 void gfxt_init(int w_chars, int h_chars) {
@@ -218,15 +243,69 @@ void _autocomplete() {
   }
 }
 
-static inline void _check_resize() {
-  if (cursor + 64 >= buffer_size) {
-  buffer_size += 64;
+static inline void _ensure_capacity(int need) {
+  if (need < buffer_size) return;
+  int old_size = buffer_size;
+  while (need >= buffer_size) buffer_size += 64;
   buffer = realloc(buffer, buffer_size);
   if (buffer == NULL) return;
+  memset(buffer + old_size, 0, buffer_size - old_size);
+}
+
+static inline void _check_resize() {
+  if (cursor + 64 >= buffer_size) {
+    _ensure_capacity(cursor + 64);
 #ifdef DEBUG
     printf("Buffer resized to %d\n", buffer_size);
 #endif
   }
+}
+
+static int _scan_visible(int find_x, int find_y, int *out_x, int *out_y) {
+  int st = 0, pc = 0, params[8] = {0};
+  int x = 0, y = 0;
+  for (int i = 0; i < cursor && buffer[i]; i++) {
+    int action = ansi_feed(buffer[i], &st, &pc, params);
+    if (action == NON_ANSI_CHAR) {
+      if (x == find_x && y == find_y) {
+        if (out_x) *out_x = x;
+        if (out_y) *out_y = y;
+        return i;
+      }
+      _update_xy(buffer[i], &x, &y, 0);
+    } else if (action > 0) {
+      ansi_reset(&st, &pc, params);
+    }
+  }
+  if (out_x) *out_x = x;
+  if (out_y) *out_y = y;
+  return -1;
+}
+
+static int _append_to_visible(int x, int y) {
+  int vx = 0, vy = 0;
+  _scan_visible(-1, -1, &vx, &vy);
+  int target = y * width + x;
+  while (vy * width + vx < target) {
+    _ensure_capacity(cursor + 2);
+    buffer[cursor++] = ' ';
+    buffer[cursor] = '\0';
+    _update_xy(' ', &vx, &vy, 0);
+  }
+  return cursor;
+}
+
+static void _move_output_cursor(int x, int y) {
+  if (x < 0) x = 0;
+  if (y < 0) y = 0;
+  if (x >= width) x = width - 1;
+  if (y >= height) y = height - 1;
+  int target = _scan_visible(x, y, NULL, NULL);
+  if (target < 0) target = _append_to_visible(x, y);
+  draw_cursor = target;
+  current_char = target;
+  putchar_x = x;
+  putchar_y = y;
 }
 
 void _scroll_line() {
@@ -401,6 +480,14 @@ void gfxt_putchar(char c) {
       buffer[cursor] = c;
       cursor++;
       draw_cursor++;
+    } else if (!key_input_process) {
+      _ensure_capacity(draw_cursor + 2);
+      buffer[draw_cursor] = c;
+      draw_cursor++;
+      if (draw_cursor > cursor) {
+        cursor = draw_cursor;
+        buffer[cursor] = '\0';
+      }
     } else {
       _append_at_cursor(c);
     }
@@ -425,25 +512,41 @@ void gfxt_putchar(char c) {
       case ANSI_CURSOR_UP:
         if (key_input_process) {
           _fetch_history(1);
+        } else {
+          int n = putchar_ansi_params[0] ? putchar_ansi_params[0] : 1;
+          _move_output_cursor(putchar_x, putchar_y - n);
         }
         break;
       case ANSI_CURSOR_DOWN:
         if (key_input_process) {
           _fetch_history(-1);
+        } else {
+          int n = putchar_ansi_params[0] ? putchar_ansi_params[0] : 1;
+          _move_output_cursor(putchar_x, putchar_y + n);
         }
         break;
       case ANSI_CURSOR_RIGHT:
         if (key_input_process) {
           if (draw_cursor < cursor) draw_cursor++;
+        } else {
+          int n = putchar_ansi_params[0] ? putchar_ansi_params[0] : 1;
+          _move_output_cursor(putchar_x + n, putchar_y);
         }
         break;
       case ANSI_CURSOR_LEFT:
         if (key_input_process) {
           if (draw_cursor > input_start) draw_cursor--;
+        } else {
+          int n = putchar_ansi_params[0] ? putchar_ansi_params[0] : 1;
+          _move_output_cursor(putchar_x - n, putchar_y);
         }
         break;
       case ANSI_CURSOR_POS:
-        // Handle cursor position
+        if (!key_input_process) {
+          int y = putchar_ansi_params[0] ? putchar_ansi_params[0] - 1 : 0;
+          int x = putchar_ansi_params[1] ? putchar_ansi_params[1] - 1 : 0;
+          _move_output_cursor(x, y);
+        }
         break;
       case ANSI_CLEAR_SCREEN:
         switch (putchar_ansi_params[0]) {
@@ -463,13 +566,30 @@ void gfxt_putchar(char c) {
       case ANSI_CLEAR_LINE:
         switch (putchar_ansi_params[0]) {
           case 0:
-            memset(buffer + draw_cursor, ' ', cursor - draw_cursor);
+            {
+              int end = putchar_y * width + width;
+              _ensure_capacity(end + 1);
+              if (cursor < end) cursor = end;
+              memset(buffer + draw_cursor, ' ', end - draw_cursor);
+              buffer[cursor] = '\0';
+            }
             break;
           case 1:
-            memset(buffer + input_start, ' ', draw_cursor - input_start);
+            {
+              int start = putchar_y * width;
+              if (draw_cursor > start)
+                memset(buffer + start, ' ', draw_cursor - start);
+            }
             break;
           case 2:
-            memset(buffer + input_start, ' ', first_line_end - input_start);
+            {
+              int start = putchar_y * width;
+              int end = start + width;
+              _ensure_capacity(end + 1);
+              if (cursor < end) cursor = end;
+              memset(buffer + start, ' ', width);
+              buffer[cursor] = '\0';
+            }
             break;
         }
         break;
@@ -521,6 +641,7 @@ void gfxt_clear() {
 char gfxt_getchar() {
   busy = 0;
   gfxt_stdin = 0;
+  stdin_waiting = 1;
   while (gfx_yeld && !gfxt_stdin) {
     gfx_yeld();
   }
@@ -532,6 +653,8 @@ char gfxt_getchar_nb() {
     busy = 0;
     gfxt_stdin = 0;
   }
+  stdin_waiting = 1;
+  if (!gfxt_stdin) stdin_pump_queue();
   return gfxt_stdin;
 }
 
@@ -704,34 +827,7 @@ void gfxt_on_key(uint8_t key) {
   _refresh_display();
 
   if (!gfxt_stdin) {
-    if (key == '\x1b' && gfxt_stdin_state == 0) {
-      gfxt_stdin_state = 1;
-      return;
-    } else if (gfxt_stdin_state == 1) {
-      if (key == '[') {
-        gfxt_stdin_state = 2;
-        return;
-      }
-      gfxt_stdin_state = 0;
-    } else if (gfxt_stdin_state == 2) {
-      switch (key) {
-        case 'A':
-          gfxt_stdin = EVT_KEY_UP;
-          break;
-        case 'B':
-          gfxt_stdin = EVT_KEY_DOWN;
-          break;
-        case 'C':
-          gfxt_stdin = EVT_KEY_RIGHT;
-          break;
-        case 'D':
-          gfxt_stdin = EVT_KEY_LEFT;
-          break;
-      }
-      gfxt_stdin_state = 0;
-      return;
-    }
-    gfxt_stdin = key;
+    gfxt_feed_char(key);
     return;
   }
 
@@ -744,7 +840,32 @@ void gfxt_feed_char(char c) {
   if (!initialized) return;
   _refresh_display();
   if (!gfxt_stdin) {
+    if (c == '\x1b' && gfxt_stdin_state == 0) {
+      gfxt_stdin_state = 1;
+      return;
+    } else if (gfxt_stdin_state == 1) {
+      if (c == '[') {
+        gfxt_stdin_state = 2;
+        return;
+      }
+      gfxt_stdin_state = 0;
+    } else if (gfxt_stdin_state == 2) {
+      switch (c) {
+        case 'A': gfxt_stdin = EVT_KEY_UP; break;
+        case 'B': gfxt_stdin = EVT_KEY_DOWN; break;
+        case 'C': gfxt_stdin = EVT_KEY_RIGHT; break;
+        case 'D': gfxt_stdin = EVT_KEY_LEFT; break;
+        case 'Z': gfxt_stdin = '\t'; break;
+        default:  gfxt_stdin = c; break;
+      }
+      gfxt_stdin_state = 0;
+      return;
+    }
     gfxt_stdin = c;
+    return;
+  }
+  if (stdin_waiting || busy || overlay_fn || stdin_qhead != stdin_qtail) {
+    stdin_q_push((unsigned char)c);
     return;
   }
   key_input_process = 1;
@@ -784,6 +905,124 @@ void gfxt_refresh_display(void) {
 void gfxt_set_overlay(void (*_overlay_fn)(void)) {
   overlay_fn = _overlay_fn;
   _refresh_display();
+}
+
+#if !defined(GFX_MACOS) && !defined(GFX_BUFFER)
+static void ppm_rect(uint8_t *img, int iw, int ih, int x, int y, int w, int h, int color) {
+  if (x < 0) { w += x; x = 0; }
+  if (y < 0) { h += y; y = 0; }
+  if (x + w > iw) w = iw - x;
+  if (y + h > ih) h = ih - y;
+  if (w <= 0 || h <= 0) return;
+  for (int py = y; py < y + h; py++) {
+    for (int px = x; px < x + w; px++) {
+      int o = (py * iw + px) * 3;
+      img[o + 0] = palette[color][0];
+      img[o + 1] = palette[color][1];
+      img[o + 2] = palette[color][2];
+    }
+  }
+}
+
+static void ppm_char(uint8_t *img, int iw, int ih, font_t *font,
+                     char ch, int x, int y, int size, int color) {
+  if (!font) return;
+  for (int cx = 0; cx < font->width; cx++) {
+    for (int cy = 1; cy <= font->height; cy++) {
+      uint8_t mask = 1 << (font->height - cy);
+      if (font->data[(uint8_t)ch * font->width + cx] & mask) {
+        ppm_rect(img, iw, ih, x + cx * size, y + (font->height - cy) * size,
+                 size, size, color);
+      }
+    }
+  }
+}
+#endif
+
+int gfxt_export_screenshot(const char *path) {
+  if (!initialized || !path || !path[0]) return 1;
+
+#if defined(GFX_MACOS)
+  gfxt_refresh_display();
+  gfxt_draw();
+  FILE *fbf = fopen(path, "wb");
+  if (!fbf) return 1;
+  fprintf(fbf, "P6\n%d %d\n255\n", WINDOW_WIDTH, WINDOW_HEIGHT);
+  uint8_t *fb = (uint8_t *)gfx_get_frame_buffer();
+  for (int i = 0; i < WINDOW_WIDTH * WINDOW_HEIGHT; i++) {
+    fputc(fb[i * 4 + 0], fbf);
+    fputc(fb[i * 4 + 1], fbf);
+    fputc(fb[i * 4 + 2], fbf);
+  }
+  fclose(fbf);
+  return 0;
+#elif defined(GFX_BUFFER)
+  gfxt_refresh_display();
+  gfxt_draw();
+  FILE *fbf = fopen(path, "wb");
+  if (!fbf) return 1;
+  fprintf(fbf, "P6\n%d %d\n255\n", WINDOW_WIDTH, WINDOW_HEIGHT);
+  uint16_t *fb = gfx_get_frame_buffer();
+  for (int i = 0; i < WINDOW_WIDTH * WINDOW_HEIGHT; i++) {
+    uint16_t c = (uint16_t)((fb[i] << 8) | (fb[i] >> 8));
+    fputc(((c >> 11) & 0x1f) << 3, fbf);
+    fputc(((c >> 5) & 0x3f) << 2, fbf);
+    fputc((c & 0x1f) << 3, fbf);
+  }
+  fclose(fbf);
+  return 0;
+#else
+  font_t *font = gfx_get_font();
+  if (!font) return 1;
+  int fw = (font->width + spacing) * font_size;
+  int fh = (font->height + spacing) * font_size;
+  int iw = width * fw;
+  int ih = height * fh;
+  uint8_t *img = malloc((size_t)iw * ih * 3);
+  if (!img) return 1;
+  ppm_rect(img, iw, ih, 0, 0, iw, ih, default_bg_color);
+
+  int st = 0, pc = 0, params[8] = {0};
+  int x = 0, y = 0, lfg = default_fg_color, lbg = default_bg_color;
+  for (int i = 0; buffer[i]; i++) {
+    int action = ansi_feed(buffer[i], &st, &pc, params);
+    if (action == NON_ANSI_CHAR) {
+      char c = buffer[i];
+      int px = x * fw, py = y * fh;
+      ppm_rect(img, iw, ih, px, py, fw, fh, lbg);
+      if (c != ' ' && c != '\n' && c != '\r')
+        ppm_char(img, iw, ih, font, c, px, py, font_size, lfg);
+      _update_xy(c, &x, &y, 0);
+      if (y >= height) break;
+    } else if (action == ANSI_COLOR) {
+      for (int p = 0; p < pc; p++) {
+        if (params[p] == 0) {
+          lfg = default_fg_color;
+          lbg = default_bg_color;
+        } else if (params[p] >= 30 && params[p] <= 37) {
+          lfg = params[p] - 30;
+        } else if (params[p] >= 90 && params[p] <= 97) {
+          lfg = params[p] - 90 + 8;
+        } else if (params[p] >= 40 && params[p] <= 47) {
+          lbg = params[p] - 40;
+        } else if (params[p] >= 100 && params[p] <= 107) {
+          lbg = params[p] - 100 + 8;
+        }
+      }
+      ansi_reset(&st, &pc, params);
+    } else if (action > 0) {
+      ansi_reset(&st, &pc, params);
+    }
+  }
+
+  FILE *f = fopen(path, "wb");
+  if (!f) { free(img); return 1; }
+  fprintf(f, "P6\n%d %d\n255\n", iw, ih);
+  fwrite(img, 1, (size_t)iw * ih * 3, f);
+  fclose(f);
+  free(img);
+  return 0;
+#endif
 }
 
 #ifdef TEST

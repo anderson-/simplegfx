@@ -9,6 +9,8 @@
 #include "ext/term/dialogs.h"
 #include "ext/term/cliutils.h"
 #include "ext/term/statusbar.h"
+#include "ext/audio/sfxrcmds.h"
+#include "ext/tracker/tracker.h"
 
 #define HISTORY_SIZE 50
 
@@ -45,6 +47,7 @@ char* get_prompt(void) {
 }
 
 static int stdin_processed = 0;
+int gfx_headless_stdin_eof = 0;
 
 static char * statusbar(char *buf, int len) {
   time_t t = time(NULL);
@@ -69,6 +72,8 @@ void gfx_app(int init) {
   gfxt_std_cmd_reg();
   dialog_cmd_reg();
   cliutils_cmd_reg();
+  gfxt_sfxr_cmd_reg();
+  gfxt_tracker_cmd_reg();
   gfxt_init(w, h - 1);
   gfxt_set_drawing_params(x, y + fh, fsize);
   dialog_init();
@@ -92,6 +97,11 @@ int gfx_on_key(char key, int down) {
 
   if (!down) {
     last_key = 0;
+    return 0;
+  }
+
+  if (key == '\t' && ctrl_pressed) {
+    gfxt_on_key(EVT_KEY_CTRLTAB);
     return 0;
   }
 
@@ -164,9 +174,10 @@ void gfx_process_data(int compute_time) {
   FD_SET(STDIN_FILENO, &rfds);
 
   if (select(STDIN_FILENO + 1, &rfds, NULL, NULL, &tv) > 0) {
-    char buf[256];
+    char buf[1];
     int n = read(STDIN_FILENO, buf, sizeof(buf));
     if (n > 0) {
+      gfx_headless_stdin_eof = 0;
       stdin_processed = 1;
       for (int i = 0; i < n; i++) {
         if (buf[i] == '\r') {
@@ -175,6 +186,8 @@ void gfx_process_data(int compute_time) {
           gfxt_feed_char(buf[i]);
         }
       }
+    } else if (n == 0) {
+      gfx_headless_stdin_eof = 1;
     }
   }
 }

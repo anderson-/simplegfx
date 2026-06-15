@@ -16,6 +16,7 @@ extern volatile char gfxt_stdin;
 #define EVT_KEY_DOWN        3
 #define EVT_KEY_LEFT        4
 #define EVT_KEY_RIGHT       5
+#define EVT_KEY_CTRLTAB     6
 
 typedef struct {
   const char* name;
@@ -53,6 +54,7 @@ void gfxt_refresh_display(void);
 void gfxt_set_overlay(void (*overlay_fn)(void));
 void gfxt_set_drawing_params(int offset_x, int offset_y, int font_size);
 void gfxt_get_drawing_params(int *offset_x, int *offset_y, int *font_size);
+int gfxt_export_screenshot(const char *path);
 
 #ifdef EXPORT_STDIO
 #define putchar gfxt_putchar

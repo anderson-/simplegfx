@@ -75,6 +75,7 @@ int gfxa_play(audio_stream_t fn, void *data, int channel) {
     if (r < GFXA_BUF_SIZE) {
       for (int i = r; i < GFXA_BUF_SIZE; i++)
         ch->buf[i] = 0;
+      fn(NULL, 0, data); // cleanup
       ch->fn = NULL;
     }
     for (int i = 0; i < GFXA_BUF_SIZE; i++) {

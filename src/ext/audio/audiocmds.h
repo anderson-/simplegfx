@@ -24,6 +24,7 @@ static afx_t s_last;
 
 int cmd_sfxr(const char *args) {
   int mutate = 0;
+  int wait_ms = 0;
   char a[64];
   int ai = 0;
 
@@ -33,6 +34,19 @@ int cmd_sfxr(const char *args) {
         mutate = 1;
         i++;
         if (args[i + 1] == ' ') i++;
+        continue;
+      }
+      if (args[i] == '-' && args[i + 1] == 'w') {
+        i += 2;
+        while (args[i] == ' ') i++;
+        if (args[i] >= '0' && args[i] <= '9') {
+          wait_ms = (int)strtol(args + i, NULL, 10);
+          while (args[i] >= '0' && args[i] <= '9') i++;
+        } else {
+          wait_ms = 8000;
+        }
+        if (args[i] == ' ') i++;
+        i--;
         continue;
       }
       a[ai++] = args[i];
@@ -65,6 +79,10 @@ int cmd_sfxr(const char *args) {
     return 1;
   }
 
+  if (wait_ms > 0) {
+    gfxa_wait(s->audio_ch, wait_ms);
+  }
+
   char b64[33];
   base64_encode((const uint8_t *)p, sizeof(afx_t), b64, sizeof(b64));
   gfxt_printf("%s" TERM_GREEN "@%d" TERM_RESET "\n", b64, s->audio_ch);
@@ -73,5 +91,5 @@ int cmd_sfxr(const char *args) {
 
 void gfxt_audio_cmd_reg(void) {
   gfxt_register_cmd("play", "[rtttl] play RTTTL melody", cmd_play);
-  gfxt_register_cmd("sfxr", "[N|b64] [-m] play sfxr sound (opt mutate)", cmd_sfxr);
+  gfxt_register_cmd("sfxr", "[N|b64] [-m] [-w ms] play sfxr sound (opt mutate, wait)", cmd_sfxr);
 }

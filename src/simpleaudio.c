@@ -39,6 +39,7 @@ static int _mix_fill(int16_t *out, int n, void *user) {
     }
     if (ch->ctrl) ch->ctrl(ch, ch->ctrl_data, ch->data);
     int r = ch->fn(ch->buf, n, ch->data);
+    ch->filled = r < n ? r : n;
     if (r < n) {
       apply_fade_out(ch->buf, r);
       for (int i = r; i < n; i++) ch->buf[i] = 0;
@@ -70,11 +71,13 @@ int gfxa_play(audio_stream_t fn, void *data, int channel) {
     ch->playing = 1;
     ch->fn = fn;
     ch->data = data;
+    ch->filled = GFXA_BUF_SIZE;
     if (channel < 0) ch->vol = 1;
     int r = fn(ch->buf, GFXA_BUF_SIZE, data);
     if (r < GFXA_BUF_SIZE) {
       for (int i = r; i < GFXA_BUF_SIZE; i++)
         ch->buf[i] = 0;
+      ch->filled = r > 0 ? r : 0;
       fn(NULL, 0, data); // cleanup
       ch->fn = NULL;
     }
@@ -88,10 +91,12 @@ int gfxa_play(audio_stream_t fn, void *data, int channel) {
     memcpy(tmp, ch->buf, GFXA_BUF_SIZE * sizeof(int16_t));
     ch->fn = fn;
     ch->data = data;
+    ch->filled = GFXA_BUF_SIZE;
     int r = fn(ch->buf, GFXA_BUF_SIZE, data);
     if (r < GFXA_BUF_SIZE) {
       for (int i = r; i < GFXA_BUF_SIZE; i++)
         ch->buf[i] = 0;
+      ch->filled = r > 0 ? r : 0;
       ch->fn = NULL;
     }
     for (int i = 0; i < GFXA_BUF_SIZE; i++) {
@@ -130,22 +135,31 @@ void gfxa_stop(int channel) {
 }
 
 void gfxa_wait(int channel, int ms) {
-  int waited = 0;
-  while (ms > 0) {
+  int buf_ms = GFXA_BUF_SIZE * 1000 / GFXA_SAMPLE_RATE;
+  int remaining = ms;
+  int filled = GFXA_BUF_SIZE;
+  int was_playing = 0;
+  while (remaining > 0) {
     int any = 0;
     if (channel < 0) {
       for (int c = 0; c < GFXA_CHANNELS; c++) {
-        if (chans[c].playing) { any = 1; break; }
+        if (chans[c].playing) { any = 1; filled = chans[c].filled; break; }
       }
     } else if (channel < GFXA_CHANNELS && chans[channel].playing) {
       any = 1;
+      filled = chans[channel].filled;
     }
     if (!any) break;
-    gfx_delay(1);
-    ms--;
-    waited = 1;
+    was_playing = 1;
+    int wait_ms = buf_ms;
+    if (wait_ms > remaining) wait_ms = remaining;
+    gfx_wait(wait_ms);
+    remaining -= wait_ms;
   }
-  if (waited) gfx_delay(GFXA_BUF_SIZE * 1000 / GFXA_SAMPLE_RATE); // TODO: use real buffer fill
+  if (was_playing) {
+    int tail_ms = filled * 1000 / GFXA_SAMPLE_RATE;
+    if (tail_ms > 0) gfx_wait(tail_ms);
+  }
 }
 
 void gfxa_set_volume(int channel, float vol) {

@@ -2,41 +2,14 @@
 
 #include "ansiutils.h"
 #include "simpleterm.h"
-#include <sys/time.h>
+#include <time.h>
 
 char input_buffer[128] = {0};
 
 int cmd_sleep(const char *args) {
   float s = 0.0;
-
-  int n = sscanf(args, "%f", &s);
-
-  if (n == 1 && s > 0.0) {
-    long long target_us = (long long)(s * 1000000.0);
-    struct timeval start;
-    gettimeofday(&start, NULL);
-    float ema_us = 0.0;
-    const float alpha = 0.2;
-    int first_iter = 1;
-    struct timeval prev;
-    gettimeofday(&prev, NULL);
-    while (1) {
-      struct timeval now;
-      gettimeofday(&now, NULL);
-      long long elapsed_us = (long long)(now.tv_sec  - start.tv_sec)  * 1000000LL
-                           + (long long)(now.tv_usec - start.tv_usec);
-      if (elapsed_us >= target_us) break;
-      long long iter_us = (long long)(now.tv_sec  - prev.tv_sec)  * 1000000LL
-                        + (long long)(now.tv_usec - prev.tv_usec);
-      if (first_iter) {
-        ema_us = (float)iter_us;
-        first_iter = 0;
-      } else if (iter_us > 0) {
-        ema_us = alpha * (float)iter_us + (1.0 - alpha) * ema_us;
-      }
-      prev = now;
-      gfx_yield();
-    }
+  if (sscanf(args, "%f", &s) == 1 && s > 0.0) {
+    gfx_wait((int)(s * 1000));
   } else {
     gfxt_println(TERM_RED "usage: sleep <seconds>" TERM_RESET);
   }
@@ -115,12 +88,9 @@ int cmd_eval(const char *args) {
 }
 
 int cmd_time(const char *args) {
-  struct timeval start;
-  gettimeofday(&start, NULL);
+  uint32_t start = gfx_time();
   int code = cmd_eval(args);
-  struct timeval end;
-  gettimeofday(&end, NULL);
-  gfxt_printf("time: %.3f seconds\n", (float)(end.tv_sec - start.tv_sec) + (float)(end.tv_usec - start.tv_usec) / 1000000.0);
+  gfxt_printf("time: %.3f seconds\n", gfx_dt(start) / 1000.0);
   return code;
 }
 
@@ -182,15 +152,13 @@ int cmd_watch(const char *args) {
     }
     count++;
     gfxt_stdin = 0;
-    struct timeval start;
-    gettimeofday(&start, NULL);
-    while (1) {
-      struct timeval now;
-      gettimeofday(&now, NULL);
-      long long elapsed = (now.tv_sec - start.tv_sec) * 1000000LL
-                        + (now.tv_usec - start.tv_usec);
-      if (elapsed >= (long long)(sec * 1000000.0)) break;
-      gfx_yield();
+    int target = (int)(sec * 1000);
+    int waited = 0;
+    while (waited < target) {
+      int chunk = 100;
+      if (target - waited < chunk) chunk = target - waited;
+      gfx_wait(chunk);
+      waited += chunk;
       if (gfxt_stdin) { gfxt_stdin = 0; gfxt_println("cancelled"); return 0; }
     }
   }

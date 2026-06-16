@@ -78,7 +78,7 @@ void gfx_app(int init) {
   dialog_init();
 }
 
-int gfx_draw(float fps) {
+int gfx_draw(gfx_step_t *s) {
   gfxt_sb_draw(statusbar, 6);
   return gfxt_draw();
 }
@@ -161,7 +161,7 @@ int gfx_on_key(char key, int down) {
   return 0;
 }
 
-void gfx_process_data(int compute_time) {
+void gfx_process_data(gfx_step_t *s) {
   fd_set rfds;
   struct timeval tv = {0, 0};
   FD_ZERO(&rfds);

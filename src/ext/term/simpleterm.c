@@ -522,7 +522,7 @@ char gfxt_getchar() {
   busy = 0;
   gfxt_stdin = 0;
   while (!gfxt_stdin) {
-    gfx_yield();
+    gfx_poll();
   }
   return gfxt_stdin;
 }

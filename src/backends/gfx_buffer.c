@@ -1,3 +1,6 @@
+#define GFX_TIME_OVERRIDE
+#define GFX_SLEEP_OVERRIDE
+
 #include "simplegfx.h"
 
 #if defined(GFX_BUFFER) || !(defined(GFX_SDL) || defined(GFX_SDL2))
@@ -44,12 +47,10 @@ void gfx_clear(void) {
   elm = 0;
 }
 
-void gfx_run(void) {
-  gfx_app(1);
-}
-
-__attribute__((weak)) void gfx_delay(int ms) {
-}
+__attribute__((weak)) uint32_t gfx_time(void) { return 0; }
+__attribute__((weak)) void gfx_sleep(int t) {}
+__attribute__((weak)) int gfx_poll(void) { return 0; }
+__attribute__((weak)) void gfx_flip(void) {}
 
 __attribute__((weak)) void gfxa_raw_stream(audio_stream_t fn) {
   int16_t buf[GFXA_BUF_SIZE];

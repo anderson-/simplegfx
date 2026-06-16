@@ -242,6 +242,40 @@ static int cmd_dialog_scroll(const char *args) {
   return 0;
 }
 
+static int cmd_timebench(const char *args) {
+  int n = 10;
+  sscanf(args, "%d", &n);
+  if (n < 3) n = 3;
+  if (n > 10) n = 10;
+
+  const char *benches[] = {
+    "play",
+    "sfxr 8 -w",
+    "sfxr 7 -w",
+    "sleep 1.5",
+    "sleep .3",
+  };
+
+  for (int b = 0; b < 5; b++) {
+    int min = 0x7fffffff, max = 0, sum = 0;
+    gfxt_printf(TERM_CYAN "bench: %s" TERM_RESET " x%d\n",
+                benches[b], n);
+
+    for (int i = 0; i < n; i++) {
+      uint32_t t0 = gfx_time();
+      cmd_eval(benches[b]);
+      int dt = gfx_dt(t0);
+      sum += dt;
+      if (dt < min) min = dt;
+      if (dt > max) max = dt;
+    }
+
+    gfxt_printf("  min:%dms  max:%dms  avg:%.1fms  range:%dms\n",
+                min, max, sum / (float)n, max - min);
+  }
+  return 0;
+}
+
 void gfxt_test_cmd_reg() {
   gfxt_register_cmd("login", "login", cmd_login);
   gfxt_register_cmd("ansi", "ANSI color codes", cmd_ansi);
@@ -251,4 +285,5 @@ void gfxt_test_cmd_reg() {
   gfxt_register_cmd("dlgdemo", "show dialog demo", cmd_dialog_demo);
   gfxt_register_cmd("dlgtheme", "set dialog theme", cmd_dialog_theme);
   gfxt_register_cmd("dlgscroll", "show scroll area demo", cmd_dialog_scroll);
+  gfxt_register_cmd("timebench", "[n] benchmark sleep timing precision", cmd_timebench);
 }

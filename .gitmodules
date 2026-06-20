@@ -1,3 +1,6 @@
 [submodule "test/microcuts"]
 	path = test/microcuts
 	url = https://github.com/anderson-/microcuts
+[submodule "lib/start"]
+	path = lib/start
+	url = git@github.com:start-lang/core.git

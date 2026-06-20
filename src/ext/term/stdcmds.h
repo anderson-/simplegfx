@@ -172,6 +172,47 @@ int cmd_help(const char *args) {
   return 0;
 }
 
+int cmd_top(const char *args) {
+  int tw = 40;
+  gfxt_get_size(&tw, NULL);
+  if (tw < 20) tw = 40;
+  int d = gfx_step.draw;
+  int p = gfx_step.proc;
+  int loop = gfx_step.loop;
+  int fps_target = GFX_FPS;
+  int frame_ms = 1000 / fps_target;
+  int actual_fps = loop > 0 ? 1000 / loop : fps_target;
+  int idle = frame_ms - loop;
+  if (idle < 0) idle = 0;
+  int poll = loop - d - p;
+  if (poll < 0) poll = 0;
+  int bar_w = tw;
+  if (bar_w < 8) bar_w = 8;
+  int seg_d = (d * bar_w) / frame_ms;
+  int seg_p = (p * bar_w) / frame_ms;
+  int seg_o = (poll * bar_w) / frame_ms;
+  int seg_i = bar_w - seg_d - seg_p - seg_o;
+  if (seg_i < 0) { seg_o += seg_i; seg_i = 0; }
+  if (seg_o < 0) { seg_p += seg_o; seg_o = 0; }
+  if (seg_p < 0) { seg_d += seg_p; seg_p = 0; }
+  if (seg_d < 0) seg_d = 0;
+  gfxt_printf(TERM_MAGENTA);
+  for (int i = 0; i < seg_d; i++) gfxt_putchar('\xdb');
+  gfxt_printf(TERM_GREEN);
+  for (int i = 0; i < seg_p; i++) gfxt_putchar('\xdb');
+  gfxt_printf(TERM_BBLACK);
+  for (int i = 0; i < seg_o; i++) gfxt_putchar('\xdb');
+  for (int i = 0; i < seg_i; i++) gfxt_putchar('\xb0');
+  gfxt_printf(TERM_MAGENTA "draw %d%% ", (d * 100) / frame_ms);
+  gfxt_printf(TERM_GREEN "proc %d%% ", (p * 100) / frame_ms);
+  gfxt_printf(TERM_BBLACK "poll %d%%\n", (poll * 100) / frame_ms);
+  gfxt_printf(TERM_BBLACK "idle %d%%\n", (idle * 100) / frame_ms);
+  gfxt_printf("dt:%dms loop:%dms budget:%dms\n", gfx_step.dt, loop, gfx_step.budget);
+  gfxt_printf("%d/%dfps ", actual_fps, fps_target);
+  gfxt_printf("frame #%d - %d gfx\n" TERM_RESET, gfx_step.frame, gfx_step.elm);
+  return 0;
+}
+
 void gfxt_std_cmd_reg() {
   gfxt_register_cmd("sleep", "sleep for n seconds", cmd_sleep);
   gfxt_register_cmd("clear", "clear screen", cmd_clear);
@@ -185,4 +226,5 @@ void gfxt_std_cmd_reg() {
   gfxt_register_cmd("beep", "[freq] [ms] beep", cmd_beep);
   gfxt_register_cmd("watch", "[s] [n] [cmd] run cmd periodically", cmd_watch);
   gfxt_register_cmd("help", "list available commands", cmd_help);
+  gfxt_register_cmd("top", "gfx_step performance snapshot", cmd_top);
 }

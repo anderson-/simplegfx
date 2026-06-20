@@ -12,6 +12,7 @@
 #include "ext/term/stdcmds.h"
 #include "ext/term/testcmds.h"
 #include "ext/audio/audiocmds.h"
+#include "ext/start/startcmds.h"
 
 #define HISTORY_SIZE 50
 
@@ -73,6 +74,7 @@ void gfx_app(int init) {
   gfxt_test_cmd_reg();
   gfxt_audio_cmd_reg();
   cliutils_cmd_reg();
+  gfxt_start_cmd_reg();
   gfxt_init(w, h - 1);
   gfxt_set_drawing_params(x, y + fh, fsize);
   dialog_init();
@@ -162,6 +164,7 @@ int gfx_on_key(char key, int down) {
 }
 
 void gfx_process_data(gfx_step_t *s) {
+  start_process_data(s);
   fd_set rfds;
   struct timeval tv = {0, 0};
   FD_ZERO(&rfds);

@@ -6,6 +6,8 @@
 #include "ansiutils.h"
 #include "simplegfx.h"
 
+#define INPUT_BUFFER_SIZE 256
+
 static char* (*prompt_fn)() = NULL;
 static int (*eval_fn)(const char*) = NULL;
 static void (*scroll_push_fn)(const char*, int) = NULL;
@@ -51,10 +53,14 @@ int frame = 0;
 int scroll = 0;
 static int draw_cursor = 0;
 static int history_index = -1;
+static char input_line[INPUT_BUFFER_SIZE];
+static int input_len = 0;
+static int input_pos = 0;
 static int busy = 0;
 static int busy_cursor = 0;
 static int display_refresh = 0;
 static int key_input_process = 0;
+static int pager_enabled = 1;
 static int pager_lines = 0;
 static int pager_quit = 0;
 static int pager_waiting = 0;
@@ -85,12 +91,10 @@ int gfxt_run_cmd(const char* line) {
   }
   for (int i = 0; i < gfxt_cmd_registry_len; i++) {
     if (strcmp(gfxt_cmd_registry[i].name, cmd) == 0) {
-      pager_lines = 0;
-      pager_quit = 0;
+      gfxt_pager_reset();
       busy = 1;
       int code = gfxt_cmd_registry[i].func(args);
-      pager_lines = 0;
-      pager_quit = 0;
+      gfxt_pager_reset();
       if (code != 0) {
         gfxt_printf(TERM_BRED "\x13%d\n" TERM_RESET, code);
       }
@@ -127,6 +131,9 @@ static void _prompt() {
   }
   input_start = cursor;
   draw_cursor = cursor;
+  input_len = 0;
+  input_pos = 0;
+  input_line[0] = '\0';
   history_index = -1;
   busy = 0;
 }
@@ -179,29 +186,28 @@ void _update_xy(char c, int *x, int *y, int check_scroll) {
   }
 }
 
+static void _replace_input(const char *text);
+
 void _autocomplete() {
-  if (cursor == input_start) {
+  if (input_len == 0) {
     return;
   }
   int prefix = 0;
   int id = -1;
   for (int i = 0; i < gfxt_cmd_registry_len; i++) {
-    if (strncmp(buffer + input_start, gfxt_cmd_registry[i].name, strlen(buffer + input_start)) == 0) {
+    if (strncmp(input_line, gfxt_cmd_registry[i].name, input_len) == 0) {
       prefix++;
       id = i;
     }
   }
   if (prefix == 1) {
-    memset(buffer + cursor, ' ', cursor - input_start);
-    memcpy(buffer + input_start, gfxt_cmd_registry[id].name, strlen(gfxt_cmd_registry[id].name));
-    cursor = input_start + strlen(gfxt_cmd_registry[id].name);
-    draw_cursor = cursor;
+    _replace_input(gfxt_cmd_registry[id].name);
   } else if (prefix > 1) {
+    char saved_input[INPUT_BUFFER_SIZE];
+    memcpy(saved_input, input_line, input_len + 1);
     gfxt_printf("\n");
-    int start = input_start;
-    int len = strlen(buffer + start);
     for (int i = 0; i < gfxt_cmd_registry_len; i++) {
-      if (memcmp(buffer + start, gfxt_cmd_registry[i].name, len - 1) == 0) {
+      if (strncmp(input_line, gfxt_cmd_registry[i].name, input_len) == 0) {
 #ifdef DEBUG
         printf("%s\n", gfxt_cmd_registry[i].name);
 #endif
@@ -210,11 +216,7 @@ void _autocomplete() {
     }
     gfxt_printf("\n");
     _prompt();
-    char * p = buffer + start;
-    while (*p && *p != '\n') {
-      gfxt_putchar(*p);
-      p++;
-    }
+    _replace_input(saved_input);
   }
 }
 
@@ -290,7 +292,6 @@ static inline void _del_at_cursor() {
     }
     buffer[cursor - 1] = '\0';
     cursor--;
-    draw_cursor--;
   }
 }
 
@@ -303,17 +304,54 @@ void _append_at_cursor(char c) {
   draw_cursor++;
 }
 
+static inline void _input_insert(char c) {
+  if (input_len >= INPUT_BUFFER_SIZE - 1) return;
+  for (int i = input_len; i > input_pos; i--) {
+    input_line[i] = input_line[i - 1];
+  }
+  input_line[input_pos] = c;
+  input_len++;
+  input_pos++;
+  input_line[input_len] = '\0';
+}
+
+static inline void _input_backspace(void) {
+  if (input_pos <= 0) return;
+  for (int i = input_pos; i <= input_len; i++) {
+    input_line[i - 1] = input_line[i];
+  }
+  input_pos--;
+  input_len--;
+}
+
+static inline void _input_delete(void) {
+  if (input_pos >= input_len) return;
+  for (int i = input_pos + 1; i <= input_len; i++) {
+    input_line[i - 1] = input_line[i];
+  }
+  input_len--;
+}
+
+static void _replace_input(const char *text) {
+  int len = text ? strlen(text) : 0;
+  if (len >= INPUT_BUFFER_SIZE) len = INPUT_BUFFER_SIZE - 1;
+  memset(buffer + input_start, '\0', cursor - input_start);
+  memcpy(buffer + input_start, text, len);
+  memcpy(input_line, text, len);
+  input_line[len] = '\0';
+  input_len = len;
+  input_pos = len;
+  cursor = input_start + len;
+  draw_cursor = cursor;
+}
+
 void _fetch_history(int direction) {
   if (direction > 0) {
     if (history_prev_fn) {
       history_index++;
       const char* cmd = history_prev_fn(history_index);
       if (cmd) {
-        int len = strlen(cmd);
-        memset(buffer + input_start, '\0', cursor - input_start);
-        memcpy(buffer + input_start, cmd, len);
-        cursor = input_start + len;
-        draw_cursor = cursor;
+        _replace_input(cmd);
       } else {
         history_index--;
       }
@@ -324,23 +362,18 @@ void _fetch_history(int direction) {
       if (history_prev_fn) {
         const char* cmd = history_prev_fn(history_index);
         if (cmd) {
-          int len = strlen(cmd);
-          memset(buffer + input_start, '\0', cursor - input_start);
-          memcpy(buffer + input_start, cmd, len);
-          cursor = input_start + len;
-          draw_cursor = cursor;
+          _replace_input(cmd);
         }
       }
     } else {
-      memset(buffer + input_start, '\0', cursor - input_start);
+      _replace_input("");
       history_index = -1;
-      cursor = input_start;
-      draw_cursor = cursor;
     }
   }
 }
 
 void gfxt_putchar(char c) {
+  if (pager_quit && !key_input_process) return;
   _refresh_display();
   _check_resize();
   if (scroll) {
@@ -350,24 +383,30 @@ void gfxt_putchar(char c) {
 
 #if defined(DEBUG)
   ansi_debug_char(c);
-#endif
   printf("%c", c);
+#endif
 
   if (action == NON_ANSI_CHAR) {
     _update_xy(c, &putchar_x, &putchar_y, 1);
     if (c == '\b') {
+      if (key_input_process) _input_backspace();
       _backspace_at_cursor();
       return;
     } else if (c == '\x7f') {
+      if (key_input_process) _input_delete();
       _del_at_cursor();
       return;
     } else if (c == '\n') {
+      char line[INPUT_BUFFER_SIZE];
       if (draw_cursor != cursor) {
         draw_cursor = cursor;
       }
       busy_cursor = cursor;
       current_char = cursor;
-      if (key_input_process && history_push_fn) history_push_fn(buffer + input_start);
+      if (key_input_process) {
+        memcpy(line, input_line, input_len + 1);
+        if (history_push_fn) history_push_fn(line);
+      }
       if (cursor > 0) {
         buffer[cursor] = c;
         cursor++;
@@ -375,9 +414,14 @@ void gfxt_putchar(char c) {
       }
       if (key_input_process) {
         key_input_process = 0;
-        eval_fn(buffer + input_start);
+        input_start = cursor;
+        input_len = 0;
+        input_pos = 0;
+        input_line[0] = '\0';
+        eval_fn(line);
+        gfxt_pager_reset();
         _prompt();
-      } else if (!pager_quit) {
+      } else if (pager_enabled && !pager_quit) {
         pager_lines++;
         if (pager_lines >= height - 2) {
           pager_lines = 0;
@@ -396,6 +440,7 @@ void gfxt_putchar(char c) {
       _autocomplete();
       return;
     }
+    if (key_input_process) _input_insert(c);
     if (cursor == draw_cursor) {
       current_char = cursor;
       buffer[cursor] = c;
@@ -435,11 +480,13 @@ void gfxt_putchar(char c) {
       case ANSI_CURSOR_RIGHT:
         if (key_input_process) {
           if (draw_cursor < cursor) draw_cursor++;
+          if (input_pos < input_len) input_pos++;
         }
         break;
       case ANSI_CURSOR_LEFT:
         if (key_input_process) {
           if (draw_cursor > input_start) draw_cursor--;
+          if (input_pos > 0) input_pos--;
         }
         break;
       case ANSI_CURSOR_POS:
@@ -452,11 +499,16 @@ void gfxt_putchar(char c) {
             cursor = 0;
             draw_cursor = 0;
             input_start = 0;
+            input_len = 0;
+            input_pos = 0;
+            input_line[0] = '\0';
             first_line_end = 0;
             last_line_start = 0;
             putchar_x = 0;
             putchar_y = 0;
             current_char = 0;
+            fg_color = default_fg_color;
+            bg_color = default_bg_color;
             break;
         }
         break;
@@ -516,6 +568,31 @@ int gfxt_printf(const char *format, ...) {
 
 void gfxt_clear() {
   gfxt_printf("\x1b[2J");
+}
+
+void gfxt_pager_reset(void) {
+  pager_enabled = 1;
+  pager_lines = 0;
+  pager_quit = 0;
+  pager_waiting = 0;
+}
+
+void gfxt_pager_set_enabled(int enabled) {
+  pager_enabled = enabled ? 1 : 0;
+  pager_lines = 0;
+}
+
+int gfxt_pager_get_enabled(void) {
+  return pager_enabled;
+}
+
+void gfxt_pager_set_quit(int quit) {
+  pager_quit = quit ? 1 : 0;
+  pager_lines = 0;
+}
+
+int gfxt_pager_get_quit(void) {
+  return pager_quit;
 }
 
 char gfxt_getchar() {
@@ -621,6 +698,8 @@ int gfxt_draw() {
   pos_x = 0;
   pos_y = 0;
   ansi_reset(&ansi_state, &ansi_param_count, ansi_params);
+  fg_color = default_fg_color;
+  bg_color = default_bg_color;
   int fwidth, fheight;
   gfx_get_font_size(&fwidth, &fheight, font_size);
   ansi_set_color(bg_color);

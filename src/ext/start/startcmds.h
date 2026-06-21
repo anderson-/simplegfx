@@ -182,7 +182,7 @@ void start_process_data(gfx_step_t *s) {
   if (bg_fixed > 0) {
     n = bg_fixed;                          // fixed
   } else if (bg_fixed == 0) {
-    n = 256;                               // adaptive: cap, real limit is time
+    n = 0;                                 // adaptive: sem limite
   } else {
     n = 1;                                 // throttle: 1 step
   }
@@ -190,7 +190,7 @@ void start_process_data(gfx_step_t *s) {
   uint32_t budget = s && s->budget ? (uint32_t)s->budget : 16;  // ms per frame
   uint32_t t0 = (bg_fixed == 0) ? gfx_time() : 0;
 
-  for (int i = 0; i < n && bg_root; i++) {
+  for (int i = 0; (n == 0 || i < n) && bg_root; i++) {
     State *sub = bg_root;
     while (sub->sub) sub = sub->sub;
     if (step_callback(sub)) break;
@@ -220,7 +220,7 @@ void start_process_data(gfx_step_t *s) {
 static const char *demo_resolve(const char *name, int *free_code) {
   *free_code = 0;
   if      (!strcmp(name,"hello")    || !strcmp(name,"h"))     return SRC_HELLO;
-  else if (!strcmp(name,"mandelbrot")||!strcmp(name,"mb"))   { *free_code = 1; return mandel_src(); }
+  else if (!strcmp(name,"mandelbrot")||!strcmp(name,"m"))   { *free_code = 1; return mandel_src(); }
   else if (!strcmp(name,"primes")   || !strcmp(name,"p"))    return SRC_PRIMES;
   return NULL;
 }
@@ -295,9 +295,8 @@ static int cmd_start(const char *args) {
     const char *code = demo_resolve(name, &free_code);
     if (!code) { gfxt_printf(TERM_RED "unknown: %s" TERM_RESET "\n", name); return 1; }
 
-    int save_pager_quit = pager_quit;
-    pager_quit = 1;
-    pager_lines = 0;
+    int save_pager_enabled = gfxt_pager_get_enabled();
+    gfxt_pager_set_enabled(0);
 
     bg_stop_flag = 0;
     State *st = (State*)calloc(1, sizeof(State));
@@ -308,7 +307,7 @@ static int cmd_start(const char *args) {
     int8_t r = st_run(st);
     uint32_t ms = gfx_dt(t0);
 
-    pager_quit = save_pager_quit;
+    gfxt_pager_set_enabled(save_pager_enabled);
 
     if (r >= JM_ERR0 || r == BL_PREV)
       gfxt_printf(TERM_RED "\n[start] error %d" TERM_RESET "  %lums\n", r, (unsigned long)ms);
@@ -322,9 +321,8 @@ static int cmd_start(const char *args) {
   {
     gfxt_printf(TERM_CYAN "[start] %s" TERM_RESET "\n", args);
 
-    int save_pager_quit = pager_quit;
-    pager_quit = 1;
-    pager_lines = 0;
+    int save_pager_enabled = gfxt_pager_get_enabled();
+    gfxt_pager_set_enabled(0);
 
     bg_stop_flag = 0;
     State *st = (State*)calloc(1, sizeof(State));
@@ -334,7 +332,7 @@ static int cmd_start(const char *args) {
     int8_t r = st_run(st);
     uint32_t ms = gfx_dt(t0);
 
-    pager_quit = save_pager_quit;
+    gfxt_pager_set_enabled(save_pager_enabled);
 
     if (r >= JM_ERR0 || r == BL_PREV)
       gfxt_printf(TERM_RED "\n[start] error %d" TERM_RESET "  %lums\n", r, (unsigned long)ms);
@@ -346,18 +344,18 @@ static int cmd_start(const char *args) {
 
 help:
   gfxt_printf(
-    TERM_CYAN "start" TERM_RESET " — run start_lang code\n"
-    "  " TERM_YELLOW "start <code>" TERM_RESET "           foreground\n"
-    "  " TERM_YELLOW "start demo hello" TERM_RESET "       hello world\n"
-    "  " TERM_YELLOW "start demo mandelbrot" TERM_RESET "  mandelbrot\n"
-    "  " TERM_YELLOW "start demo primes" TERM_RESET "      prime numbers\n"
-    "  " TERM_YELLOW "start bg [N] <code>" TERM_RESET "    N>0 fixed, N<0 slow, N=0 adaptive\n"
-    "  " TERM_YELLOW "start bg stop" TERM_RESET "          stop background\n"
-    "  " TERM_YELLOW "start bg status" TERM_RESET "        show status\n"
+    TERM_CYAN "st" TERM_RESET " — run start_lang code\n"
+    "  " TERM_YELLOW "st <code>" TERM_RESET "           foreground\n"
+    "  " TERM_YELLOW "st demo hello" TERM_RESET "       hello world\n"
+    "  " TERM_YELLOW "st demo mandelbrot" TERM_RESET "  mandelbrot\n"
+    "  " TERM_YELLOW "st demo primes" TERM_RESET "      prime numbers\n"
+    "  " TERM_YELLOW "st bg [N] <code>" TERM_RESET "    N>0 fixed, N<0 slow, N=0 adaptive\n"
+    "  " TERM_YELLOW "st bg stop" TERM_RESET "          stop background\n"
+    "  " TERM_YELLOW "st bg status" TERM_RESET "        show status\n"
   );
   return 0;
 }
 
 static void gfxt_start_cmd_reg(void) {
-  gfxt_register_cmd("start", "run start_lang code (demo/bg/raw)", cmd_start);
+  gfxt_register_cmd("st", "run start_lang code (demo/bg/raw)", cmd_start);
 }

@@ -71,11 +71,11 @@ int ansi_feed(char c, int *state, int *param_count, int *params) {
         }
         return ANSI_NONE;
       } else if (c == ';') {
-        (*param_count)++;
+        if (*param_count < 7) (*param_count)++;
         return ANSI_NONE;
       } else {
         int action = ANSI_NONE;
-        (*param_count)++;
+        if (*param_count < 8) (*param_count)++;
         switch (c) {
           case 'm':
             action = ANSI_COLOR;

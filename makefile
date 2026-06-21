@@ -93,7 +93,7 @@ $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-run)): %-run: %
 
 .PHONY: test
 test:
-	${CC} test/test.c ${SOURCES} ${TEST} ${CFLAGS} -DTEST -o ${BUILD}/test
+	${CC} test/test.c ${SOURCES} $(BACKENDS)/gfx_buffer.c ${TEST} ${CFLAGS} -DTEST -o ${BUILD}/test
 	chmod +x ${BUILD}/test
 	./${BUILD}/test
 

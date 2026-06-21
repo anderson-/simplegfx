@@ -88,13 +88,23 @@ void ansi_parser(void) {
   assert_eq(ansi_feed('[',    &state, &param_count, params), ANSI_NONE);
   assert_eq(ansi_feed('\x1a', &state, &param_count, params), ANSI_NONE);
   assert_eq(state, 0);
+
+  ansi_reset(&state, &param_count, params);
+  assert_eq(ansi_feed('\x1b', &state, &param_count, params), ANSI_NONE);
+  assert_eq(ansi_feed('[',    &state, &param_count, params), ANSI_NONE);
+  for (int i = 0; i < 12; i++) {
+    assert_eq(ansi_feed('1', &state, &param_count, params), ANSI_NONE);
+    assert_eq(ansi_feed(';', &state, &param_count, params), ANSI_NONE);
+  }
+  assert_eq(ansi_feed('m', &state, &param_count, params), ANSI_COLOR);
+  assert_eq(param_count, 8);
 }
 
 void simpleterm(void) {
   gfx_set_font(&font5x7);
-  gfxt_init(64, 6);
   gfxt_set_prompt_handler(get_prompt);
   gfxt_set_history_handler(add_history, get_history);
+  gfxt_init(64, 6);
 
   // should start with prompt
   assert_escstr_eq(get_buffer(), "\x1b[0m\x1b[32mtest\x1b[0m> ", esc);
@@ -125,7 +135,25 @@ void simpleterm(void) {
   gfxt_on_key('[');
   gfxt_on_key('B');
   assert_escstr_eq(get_buffer(), "\x1b[0m> a\n\x1b[31ma: not found\n\x1b[0m\x1b[0m> b\n\x1b[31mb: not found\n\x1b[0m\x1b[0m> b", esc);
-  //print_buffer();
+
+  history_count = 0;
+  gfxt_printf("\x1b[2J");
+  gfxt_printf("noise");
+  gfxt_on_key('c');
+  gfxt_on_key('\n');
+  assert_str_eq(history[history_count - 1], "c");
+
+  gfxt_printf("\x1b[2J");
+  gfxt_on_key('a');
+  gfxt_on_key('b');
+  gfxt_on_key('c');
+  gfxt_on_key('\x1b');
+  gfxt_on_key('[');
+  gfxt_on_key('D');
+  gfxt_on_key('\x7f');
+  gfxt_on_key('d');
+  gfxt_on_key('\n');
+  assert_str_eq(history[history_count - 1], "abd");
 }
 
 int main(void){

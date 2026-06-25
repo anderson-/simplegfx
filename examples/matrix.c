@@ -33,9 +33,9 @@ static void draw_matrix() {
   }
 }
 
-void gfx_process_data(int compute_time) {}
+void gfx_process_data(gfx_step_t *s) {}
 
-int gfx_draw(float fps) {
+int gfx_draw(gfx_step_t *s) {
   draw_matrix();
   return 1;
 }

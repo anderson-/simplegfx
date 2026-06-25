@@ -53,12 +53,12 @@ int draw_mandelbrot_set() {
   return 0;
 }
 
-void gfx_process_data(int compute_time) {
-  gfx_delay(1);
+void gfx_process_data(gfx_step_t *s) {
+  gfx_sleep(1);
   compute_loops++;
 }
 
-int gfx_draw(float fps) {
+int gfx_draw(gfx_step_t *s) {
   for (int i = 0; i < RECT_COUNT; i++) {
     gfx_set_color(rand() % 30 + 10, rand() % (menu ? 60 : 30) + 10, rand() % 90 + 10);
     gfx_fill_rect(rand() % WINDOW_WIDTH, rand() % WINDOW_HEIGHT, rand() % 50 + 10, rand() % 50 + 10);
@@ -96,6 +96,7 @@ int gfx_draw(float fps) {
     gfx_text("\xae Press MENU + X to exit \xaf", 10, 10, 2);
   }
 
+  float fps = (float) 1000 / (s->tick + s->sleep);
   sprintf(text, "%.1f fps | %.1fk draws ", fps, elm/1000.0);
   gfx_text(text, 480, 8, 1);
   sprintf(text, "compute %d | buffer %.1fk", compute_loops, printf_len/1000.0);

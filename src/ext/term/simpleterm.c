@@ -231,6 +231,18 @@ static inline void _check_resize() {
 
 void _scroll_line() {
   first_line_end++;
+  // skip past the ANSI escape fragment, if any.
+  if (buffer[first_line_end] == '[') {
+    int st = 1;  // \x1b already consumed
+    int pc = 0, ps[8] = {0};
+    char *p = buffer + first_line_end;
+    while (*p) {
+      int action = ansi_feed(*p, &st, &pc, ps);
+      if (action == NON_ANSI_CHAR) break;
+      p++;
+    }
+    first_line_end = (int)(p - buffer);
+  }
   char end = buffer[first_line_end];
   buffer[first_line_end] = '\0';
   if (scroll_push_fn) scroll_push_fn(buffer, -1);
@@ -343,7 +355,7 @@ void _fetch_history(int direction) {
 void gfxt_putchar(char c) {
   _refresh_display();
   _check_resize();
-  if (scroll) {
+  if (scroll && putchar_ansi_state == 0) {
     _scroll_line();
   }
   int action = ansi_feed(c, &putchar_ansi_state, &putchar_ansi_param_count, putchar_ansi_params);
@@ -522,7 +534,7 @@ char gfxt_getchar() {
   busy = 0;
   gfxt_stdin = 0;
   while (!gfxt_stdin) {
-    gfx_yield();
+    gfx_wait(1);
   }
   return gfxt_stdin;
 }
@@ -664,7 +676,7 @@ int gfxt_draw() {
     }
 #endif
     if (busy > 5 && busy_cursor == i) {
-      int spin_idx = (frame/2) % 4;
+      int spin_idx = frame % 4;
       char spin_char = spinner[spin_idx];
       ansi_set_color(8);
       gfx_draw_char(spin_char, offset_x + pos_x * fwidth, offset_y + pos_y * fheight, font_size);

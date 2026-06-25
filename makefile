@@ -9,8 +9,12 @@ else ifneq ($(shell uname),Darwin)
 XTRA_CFLAGS = -I/usr/include -L/usr/lib
 endif
 
-INCLUDES = -I$(LIBS) -I$(BACKENDS) $(addprefix -I,$(wildcard $(LIBS)/ext/*))
-SOURCES  = $(filter-out $(BACKENDS)/%, $(wildcard $(LIBS)/*.c)) $(wildcard $(LIBS)/ext/*/*.c)
+INCLUDES = -I$(LIBS) -I$(BACKENDS) \
+  $(addprefix -I,$(wildcard $(LIBS)/ext/*)) \
+  $(addprefix -I,$(wildcard lib/*/src) $(wildcard lib/*/lib/*))
+SOURCES  = $(filter-out $(BACKENDS)/%, $(wildcard $(LIBS)/*.c)) \
+  $(wildcard $(LIBS)/ext/*/*.c) \
+  $(wildcard lib/*/src/*.c)
 TEST     = test/microcuts/src/microcuts.c -Itest/microcuts/src/
 CFLAGS   = -std=c99 -Wall -g -Os -flto ${INCLUDES} ${XTRA_CFLAGS}
 
@@ -89,7 +93,7 @@ $(foreach p,$(PLATFORMS),$(foreach e,$(EXAMPLES),$(p)-$(e)-run)): %-run: %
 
 .PHONY: test
 test:
-	${CC} test/test.c ${SOURCES} ${TEST} ${CFLAGS} -DTEST -o ${BUILD}/test
+	${CC} test/test.c ${SOURCES} $(BACKENDS)/gfx_buffer.c ${TEST} ${CFLAGS} -DTEST -o ${BUILD}/test
 	chmod +x ${BUILD}/test
 	./${BUILD}/test
 

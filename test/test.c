@@ -7,6 +7,14 @@
 
 int simple_prompt = 0;
 
+int gfx_draw(gfx_step_t *s) {
+  return 0;
+}
+
+void gfx_process_data(gfx_step_t *s) {
+
+}
+
 char* get_prompt(void) {
   return simple_prompt ? "> " : "\x1b[32mtest\x1b[m> ";
 }
@@ -92,9 +100,9 @@ void ansi_parser(void) {
 
 void simpleterm(void) {
   gfx_set_font(&font5x7);
-  gfxt_init(64, 6);
   gfxt_set_prompt_handler(get_prompt);
   gfxt_set_history_handler(add_history, get_history);
+  gfxt_init(64, 6);
 
   // should start with prompt
   assert_escstr_eq(get_buffer(), "\x1b[0m\x1b[32mtest\x1b[0m> ", esc);

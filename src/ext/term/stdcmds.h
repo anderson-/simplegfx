@@ -2,41 +2,15 @@
 
 #include "ansiutils.h"
 #include "simpleterm.h"
-#include <sys/time.h>
+#include <time.h>
+#include <stdarg.h>
 
 char input_buffer[128] = {0};
 
 int cmd_sleep(const char *args) {
   float s = 0.0;
-
-  int n = sscanf(args, "%f", &s);
-
-  if (n == 1 && s > 0.0) {
-    long long target_us = (long long)(s * 1000000.0);
-    struct timeval start;
-    gettimeofday(&start, NULL);
-    float ema_us = 0.0;
-    const float alpha = 0.2;
-    int first_iter = 1;
-    struct timeval prev;
-    gettimeofday(&prev, NULL);
-    while (1) {
-      struct timeval now;
-      gettimeofday(&now, NULL);
-      long long elapsed_us = (long long)(now.tv_sec  - start.tv_sec)  * 1000000LL
-                           + (long long)(now.tv_usec - start.tv_usec);
-      if (elapsed_us >= target_us) break;
-      long long iter_us = (long long)(now.tv_sec  - prev.tv_sec)  * 1000000LL
-                        + (long long)(now.tv_usec - prev.tv_usec);
-      if (first_iter) {
-        ema_us = (float)iter_us;
-        first_iter = 0;
-      } else if (iter_us > 0) {
-        ema_us = alpha * (float)iter_us + (1.0 - alpha) * ema_us;
-      }
-      prev = now;
-      gfx_yield();
-    }
+  if (sscanf(args, "%f", &s) == 1 && s > 0.0) {
+    gfx_wait((int)(s * 1000));
   } else {
     gfxt_println(TERM_RED "usage: sleep <seconds>" TERM_RESET);
   }
@@ -115,12 +89,9 @@ int cmd_eval(const char *args) {
 }
 
 int cmd_time(const char *args) {
-  struct timeval start;
-  gettimeofday(&start, NULL);
+  uint32_t start = gfx_time();
   int code = cmd_eval(args);
-  struct timeval end;
-  gettimeofday(&end, NULL);
-  gfxt_printf("time: %.3f seconds\n", (float)(end.tv_sec - start.tv_sec) + (float)(end.tv_usec - start.tv_usec) / 1000000.0);
+  gfxt_printf("time: %.3f seconds\n", gfx_dt(start) / 1000.0);
   return code;
 }
 
@@ -182,15 +153,13 @@ int cmd_watch(const char *args) {
     }
     count++;
     gfxt_stdin = 0;
-    struct timeval start;
-    gettimeofday(&start, NULL);
-    while (1) {
-      struct timeval now;
-      gettimeofday(&now, NULL);
-      long long elapsed = (now.tv_sec - start.tv_sec) * 1000000LL
-                        + (now.tv_usec - start.tv_usec);
-      if (elapsed >= (long long)(sec * 1000000.0)) break;
-      gfx_yield();
+    int target = (int)(sec * 1000);
+    int waited = 0;
+    while (waited < target) {
+      int chunk = 100;
+      if (target - waited < chunk) chunk = target - waited;
+      gfx_wait(chunk);
+      waited += chunk;
       if (gfxt_stdin) { gfxt_stdin = 0; gfxt_println("cancelled"); return 0; }
     }
   }
@@ -201,6 +170,55 @@ int cmd_help(const char *args) {
   for (int i = 0; i < gfxt_cmd_registry_len; i++) {
     gfxt_printf(TERM_CYAN " %s" TERM_RESET " \x1a %s\n", gfxt_cmd_registry[i].name, gfxt_cmd_registry[i].help);
   }
+  return 0;
+}
+
+static void bar_draw(int w, int n, ...) {
+  va_list args;
+  va_start(args, n);
+  const char *name[n], *color[n];
+  int value[n], total = 0;
+  for (int i = 0; i < n; i++) {
+    name[i]  = va_arg(args, const char *);
+    color[i] = va_arg(args, const char *);
+    total   += value[i] = va_arg(args, int);
+  }
+  va_end(args);
+  if (total < 1) total = 1;
+  int rest = w;
+  for (int i = 0; i < n; i++) {
+    int seg = value[i] * w / total;
+    if (seg > rest) seg = rest;
+    gfxt_print(color[i]);
+    for (int j = 0; j < seg; j++) gfxt_putchar('\xdb');
+    rest -= seg;
+  }
+  for (int i = 0; i < rest; i++) gfxt_putchar('\xb0');
+  for (int i = 0; i < n; i++) {
+    gfxt_print(color[i]);
+    gfxt_printf("%s %d%% - %dms\n", name[i], value[i] * 100 / total, value[i]);
+  }
+  gfxt_print(TERM_RESET "\n");
+}
+
+int cmd_top(const char *args) {
+  int tw = 10;
+  gfxt_get_size(&tw, NULL);
+  bar_draw(tw, 4,
+    "poll", TERM_YELLOW, gfx_step.poll,
+    "draw", TERM_MAGENTA, gfx_step.draw,
+    "work", TERM_GREEN, gfx_step.work,
+    "sleep", TERM_BBLACK, gfx_step.sleep
+  );
+  bar_draw(tw, 2,
+    "tick", TERM_CYAN, gfx_step.tick,
+    "sleep", TERM_BBLACK, gfx_step.sleep
+  );
+  int e = gfx_step.tick - (gfx_step.draw + gfx_step.work + gfx_step.poll);
+  e = e < 0 ? -e : e;
+  gfxt_printf("e:%dms wait:%dms budget:%dms\n", e, gfx_step.wait, gfx_step.budget);
+  gfxt_printf("%d/%dfps loop:%dms ", 1000 / (gfx_step.tick + gfx_step.sleep), GFX_FPS, gfx_step.tick);
+  gfxt_printf("- #%d - %d gfx\n" TERM_RESET, gfx_step.frame, gfx_step.elm);
   return 0;
 }
 
@@ -217,4 +235,5 @@ void gfxt_std_cmd_reg() {
   gfxt_register_cmd("beep", "[freq] [ms] beep", cmd_beep);
   gfxt_register_cmd("watch", "[s] [n] [cmd] run cmd periodically", cmd_watch);
   gfxt_register_cmd("help", "list available commands", cmd_help);
+  gfxt_register_cmd("top", "gfx_step performance snapshot", cmd_top);
 }

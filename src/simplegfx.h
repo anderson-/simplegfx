@@ -27,12 +27,12 @@ extern "C" {
 #define GFX_FPS 30
 #endif
 
-#include <time.h>
 #include <math.h>
 #include "keymap.h"
 #include "simplefont.h"
 #include "simplemath.h"
 #include "simpleaudio.h"
+#include "simpletime.h"
 
 // Common variables
 extern uint32_t elm;
@@ -46,11 +46,6 @@ extern int boxdrawing;
 // API functions
 int gfx_setup(void);
 void gfx_cleanup(void);
-void gfx_run(void);
-void gfx_loop(void);
-
-#define gfx_yield() gfx_loop()
-
 void gfx_clear(void);
 void gfx_set_color(int r, int g, int b);
 void gfx_point(int x, int y);
@@ -65,9 +60,6 @@ int gfx_text(const char * text, int x, int y, int size);
 int gfx_font_table(int x, int y, int size);
 int gfx_clear_text_buffer(void);
 int gfx_printf(const char * format, ...);
-
-// Utils
-void gfx_delay(int ms);
 
 // Backend specific
 #if defined(GFX_BUFFER) || !(defined(GFX_SDL) || defined(GFX_SDL2))
@@ -94,11 +86,14 @@ void gfx_screenshot(const char * filename);
 #define GFX_DISPLAY_BUFFER_COUNT 2
 #endif
 
+extern gfx_step_t gfx_step;
+extern int gfx_wait_frames;
+
 // Callbacks to be implemented by the user app
 extern void gfx_app(int init);
-extern int gfx_draw(float fps);
+extern int gfx_draw(gfx_step_t *s);
 extern int gfx_on_key(char key, int down);
-extern void gfx_process_data(int compute_time);
+extern void gfx_process_data(gfx_step_t *s);
 
 #ifdef __cplusplus
 }

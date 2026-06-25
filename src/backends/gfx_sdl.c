@@ -1,17 +1,15 @@
 #include "simplegfx.h"
 #include <signal.h>
-#include <time.h>
 
 #if defined(GFX_SDL) || defined(GFX_SDL2)
 
 static audio_stream_t sdl_fn = NULL;
 static void *sdl_user = NULL;
 static int sr = GFXA_SAMPLE_RATE;
-static int exit_app = 0;
 static int audio_inited = 0;
 
 void signal_handler(int sig) {
-  exit_app = 1;
+  exit(0);
 }
 
 #undef main
@@ -23,6 +21,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   gfx_set_font(&font5x7);
+  gfx_app(1);
   gfx_run();
   gfx_app(0);
   gfx_cleanup();
@@ -173,24 +172,18 @@ void gfx_fill_rect(int x, int y, int w, int h) {
   elm++;
 }
 
-static uint32_t delay = 1000 / GFX_FPS;
-static uint32_t start;
-static uint32_t busytime = 0;
-static float fps = GFX_FPS;
-static SDL_Event event;
 static int pwrclicks = 0;
 static int pwrdown = 0;
 #ifdef SCREENSHOT
 static int screenshot_trigger = 0;
 #endif
 
-void gfx_loop() {
-  start = SDL_GetTicks();
+int gfx_poll(void) {
+  SDL_Event event;
   while (SDL_PollEvent(&event)) {
     char key = (char)event.key.keysym.sym;
     if (event.type == SDL_QUIT) {
-      exit(0);
-      return;
+      return 1;
     } else if (event.type == SDL_KEYDOWN) {
       if (key == BTN_GP_POWER_ESC) {
         pwrdown = 1;
@@ -198,32 +191,25 @@ void gfx_loop() {
         pwrclicks = 0;
         pwrdown = 0;
       }
-      if (gfx_on_key(key, 1) != 0) {
-        exit_app = 1;
-        return;
-      }
+      if (gfx_on_key(key, 1) != 0) return 1;
     } else if (event.type == SDL_KEYUP) {
       if (key == BTN_GP_POWER_ESC) {
         if (pwrdown) {
           pwrclicks++;
           pwrdown = 0;
-          if (pwrclicks >= 3) {
-            exit_app = 1;
-            return;
-          }
+          if (pwrclicks >= 3) return 1;
         }
       } else {
         pwrclicks = 0;
         pwrdown = 0;
       }
-      if (gfx_on_key(key, 0) != 0) {
-        exit_app = 1;
-        return;
-      }
+      if (gfx_on_key(key, 0) != 0) return 1;
     }
   }
-  gfx_process_data(SDL_GetTicks() - start);
-  if (gfx_draw(fps)) {
+  return 0;
+}
+
+void gfx_flip(void) {
 #ifdef GFX_SDL2
   SDL_RenderPresent(renderer);
 #else
@@ -232,33 +218,12 @@ void gfx_loop() {
 #ifdef SCREENSHOT
     screenshot_trigger++;
     if (screenshot_trigger % 60 == 0) {
-      char filename[256];
-      time_t now = time(NULL);
-      snprintf(filename, sizeof(filename), "build/screenshot_%06ld.bmp", (long)now);
-      gfx_screenshot(filename);
-    }
+    char filename[256];
+    time_t now = time(NULL);
+    snprintf(filename, sizeof(filename), "build/screenshot_%06ld.bmp", (long)now);
+    gfx_screenshot(filename);
+  }
 #endif
-    gfx_clear();
-  }
-
-  busytime = SDL_GetTicks() - start;
-  if (delay > busytime) {
-    SDL_Delay(delay - busytime);
-  }
-
-  float frame_time = (SDL_GetTicks() - start) / 1000.0f;
-  if (frame_time > 0) {
-    float current_fps = 1.0f / frame_time;
-    fps = (0.1f * current_fps) + (0.9f * fps);
-  }
-}
-
-void gfx_run(void) {
-  gfx_app(1);
-
-  while (!exit_app) {
-    gfx_loop();
-  }
 }
 
 #ifdef SCREENSHOT
@@ -275,9 +240,5 @@ void gfx_screenshot(const char * filename) {
 #endif
 }
 #endif
-
-void gfx_delay(int ms) {
-  SDL_Delay(ms);
-}
 
 #endif

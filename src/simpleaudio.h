@@ -19,6 +19,7 @@ struct channel_s {
   audio_ctrl_t ctrl;
   void *ctrl_data;
   int playing;
+  int filled;
   float vol;
 };
 

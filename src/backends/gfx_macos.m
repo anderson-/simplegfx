@@ -3,13 +3,11 @@
 
 #import <Cocoa/Cocoa.h>
 #import <AudioToolbox/AudioToolbox.h>
-#include <time.h>
 
 #define FB_SIZE (WINDOW_WIDTH * WINDOW_HEIGHT)
 
 static uint8_t g_fb[FB_SIZE * 4];
 static uint8_t g_r = 255, g_g = 255, g_b = 255;
-static float g_fps = GFX_FPS;
 
 static AudioQueueRef audioQueue = NULL;
 static AudioStreamBasicDescription audioFormat;
@@ -113,26 +111,16 @@ void gfx_clear(void) {
   elm = 0;
 }
 
-void gfx_delay(int ms) {
-  struct timespec ts = { ms / 1000, (ms % 1000) * 1000000L };
-  nanosleep(&ts, NULL);
-}
-
 uint16_t* gfx_get_frame_buffer(void) {
   return (uint16_t*)g_fb;
 }
 
 @interface PixelView : NSView @end
 @interface AppDelegate : NSObject <NSApplicationDelegate> {
-  NSTimer *_timer;
-  uint64_t _last_ns;
   BOOL _shouldExit;
-  int _powerEscConsecutiveCount;
-  BOOL _powerEscPressed;
 }
 - (void)setShouldExit:(BOOL)shouldExit;
-- (void)handlePowerEscPress:(BOOL)isPressed;
-- (void)resetPowerEscCount;
+- (BOOL)shouldExit;
 @end
 
 static void process_key_event(NSEvent *ev) {
@@ -141,8 +129,6 @@ static void process_key_event(NSEvent *ev) {
     char key = ([chars length] > 0) ? (char)[chars characterAtIndex:0] : (char)[ev keyCode];
     int down = ([ev type] == NSEventTypeKeyDown) ? 1 : 0;
     AppDelegate *del = (AppDelegate *)[NSApp delegate];
-    if (key != BTN_GP_POWER_ESC && down) [del resetPowerEscCount];
-    if (key == BTN_GP_POWER_ESC) [del handlePowerEscPress:down];
     if (gfx_on_key(key, down)) [del setShouldExit:YES];
   }
 }
@@ -170,25 +156,10 @@ static PixelView *g_view = nil;
 
 @implementation AppDelegate
 - (void)setShouldExit:(BOOL)s { _shouldExit = s; }
-- (void)handlePowerEscPress:(BOOL)p {
-  if (p) {
-    _powerEscPressed = YES;
-  } else if (_powerEscPressed) {
-    _powerEscConsecutiveCount++;
-    _powerEscPressed = NO;
-    if (_powerEscConsecutiveCount >= 3) [self setShouldExit:YES];
-  }
-}
-- (void)resetPowerEscCount { _powerEscConsecutiveCount = 0; _powerEscPressed = NO; }
-static uint64_t mono_ns(void) {
-  struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
-  return (uint64_t)t.tv_sec * 1000000000ULL + (uint64_t)t.tv_nsec;
-}
+- (BOOL)shouldExit { return _shouldExit; }
 - (void)applicationDidFinishLaunching:(NSNotification *)n {
   (void)n;
   _shouldExit = NO;
-  _powerEscConsecutiveCount = 0;
-  _powerEscPressed = NO;
   NSRect f = NSMakeRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
   NSWindowStyleMask mask = NSWindowStyleMaskTitled
                          | NSWindowStyleMaskClosable
@@ -205,49 +176,35 @@ static uint64_t mono_ns(void) {
   [w makeKeyAndOrderFront:nil];
   [w makeFirstResponder:g_view];
   [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
+
+  gfx_set_font(&font5x7);
   gfx_app(1);
-  _last_ns = mono_ns();
-  _timer = [NSTimer scheduledTimerWithTimeInterval:(1.0 / GFX_FPS)
-                                            target:self
-                                          selector:@selector(tick:)
-                                          userInfo:nil
-                                           repeats:YES];
-}
-- (void)tick:(NSTimer *)t {
-  (void)t;
-  uint64_t now = mono_ns();
-  float el = (now - _last_ns) / 1e9f;
-  _last_ns = now;
-  if (el > 0) g_fps = 0.1f * (1.0f / el) + 0.9f * g_fps;
-  gfx_process_data((int)(el * 1000));
-  if (gfx_draw(g_fps)) {
-    [g_view setNeedsDisplay:YES];
-    [g_view displayIfNeeded];
-    gfx_clear();
-  }
-  if (_shouldExit) [NSApp terminate:nil];
+  gfx_run();
+  gfx_app(0);
+  [NSApp terminate:nil];
 }
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)s { (void)s; return YES; }
-- (void)applicationWillTerminate:(NSNotification *)n { (void)n; [_timer invalidate]; gfx_app(0); }
 @end
 
 int gfx_setup(void) { return 0; }
 
-void gfx_loop(void) {
+int gfx_poll(void) {
   NSEvent *e;
+  int exit = 0;
   while ((e = [NSApp nextEventMatchingMask:NSEventMaskAny
-                                 untilDate:nil
+                                 untilDate:[NSDate distantPast]
                                     inMode:NSDefaultRunLoopMode
                                    dequeue:YES])) {
     [NSApp sendEvent:e];
+    AppDelegate *del = (AppDelegate *)[NSApp delegate];
+    if ([del shouldExit]) exit = 1;
   }
+  return exit;
 }
 
-void gfx_run(void) {
-  [NSApplication sharedApplication];
-  [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-  [NSApp setDelegate:[[AppDelegate alloc] init]];
-  [NSApp run];
+void gfx_flip(void) {
+  [g_view setNeedsDisplay:YES];
+  [g_view displayIfNeeded];
 }
 
 void gfx_cleanup(void) {
@@ -256,10 +213,10 @@ void gfx_cleanup(void) {
 }
 
 int main(void) {
-  gfx_setup();
-  gfx_set_font(&font5x7);
-  gfx_run();
-  gfx_cleanup();
+  [NSApplication sharedApplication];
+  [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+  [NSApp setDelegate:[[AppDelegate alloc] init]];
+  [NSApp run];
   return 0;
 }
 
